@@ -9,6 +9,7 @@ import numpy as np
 from shapely.geometry import Polygon, LineString, Point, box
 from sqlalchemy import *
 from shapely.geometry import *
+import os
 
 
 def get_nias(file_path="data/neighbourhood-improvement-areas-wgs84/NEIGHBOURHOOD_IMPROVEMENT_AREA_WGS84.shp"):
@@ -75,9 +76,12 @@ def nia_filename(nias):
             NIAs_name += "_"
     return NIAs_name
 
-def road_points(pednet_path="zip://data/pednet.zip",save_path="./preprocessing/pednet_points/end_points.txt",prec=2):
+def road_points(root,outputfile="./preprocessing/road_end_points.txt",prec=2):
 
     # original copy in test.py
+    # pednet_path="zip://data/pednet.zip"
+    root="/Users/weimin/Documents/MASC/walkability_data"
+    pednet_path = os.path.join(root,"pednet.zip")
 
     # reading pednet file
     pednet = gpd.read_file(pednet_path)
@@ -102,15 +106,51 @@ def road_points(pednet_path="zip://data/pednet.zip",save_path="./preprocessing/p
         d['y'].append(np.round(y_list[-1], prec))
         d['roadID'].append(i + 1)
 
-    with open(save_path, 'w') as file:
+    with open(outputfile, 'w') as file:
         file.write(json.dumps(d))
+    return
+
+def road_nia_mapping(data_root, preprocessing_folder, outputfile):
+    # code reference: https://github.com/gcc-dav-official-github/dav_cot_walkability/blob/master/code/TTC%20Walkability%20Tutorial.ipynb
+    nia = gpd.read_file(os.path.join(data_root,"neighbourhood-improvement-areas-wgs84/NEIGHBOURHOOD_IMPROVEMENT_AREA_WGS84.shp"))
+    nia.columns = map(str.lower, nia.columns)
+    nia = nia[['area_id', 'area_s_cd', 'area_name', 'geometry']]
+
+    # reprojecting epsg 4386 (wgs84) to epsg 2019 (mtm nad 27)
+    crs = {'init': 'epsg:4326'}
+    nia = gpd.GeoDataFrame(nia, crs=crs, geometry='geometry')
+    nia = nia.to_crs({'init': 'epsg:2019'})
+
+    nia_d = {'niaID': [], 'x_p': [], 'y_p': [], 'roadID': []}
+
+    with open(os.path.join(preprocessing_folder,"road_end_point.txt"), 'r') as f:
+        D = json.load(f)
+    roadID = D['roadID']
+    x_list = D['x']
+    y_list = D['y']
+
+
+    # assign road segments (end points) to census tract
+    for row in range(len(nia)):
+        nia_id = int(nia.iloc[0]["area_s_cd"]) # nia name
+        poly = nia.iloc[row]['geometry']  # nia_boundary
+
+        for j in range(len(x_list)):
+            p = Point(x_list[j], y_list[j])
+            if p.within(poly) == True:
+                nia_d['niaID'].append(nia_id)
+                nia_d['x_p'].append(x_list[j])
+                nia_d['y_p'].append(y_list[j])
+                nia_d['roadID'].append(roadID[j])
+
+    with open(outputfile, 'w') as file:
+        file.write(json.dumps(nia_d))
     return
 
 
 def road_CT_mapping(CT_boundary_path="data/lct_000b16a_e/lct_000b16a_e.shp",
                     end_points_path="./preprocessing/pednet_points/end_points.txt",
                     save_path='./preprocessing/pednet_points/road_CT_mapping.txt'):
-
     boundary = gpd.read_file(CT_boundary_path)
     print(boundary.crs)
     crs = {'init': 'epsg:3347'}

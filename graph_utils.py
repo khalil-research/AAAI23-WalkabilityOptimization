@@ -15,8 +15,8 @@ import json
 
 preprocessing_folder="preprocessing_pickle4"
 
-def load_pednet(pednet_path):
-    pednet = gpd.read_file(pednet_path)
+def load_pednet(data_root):
+    pednet = gpd.read_file(os.path.join(data_root,"pednet.zip"))
     print(pednet.crs)
     crs = {'init': 'epsg:4326'}
     pednet = gpd.GeoDataFrame(pednet, crs=crs, geometry='geometry')
@@ -148,6 +148,16 @@ def pednet_CTs(pednet,CTs,mapping=os.path.join(preprocessing_folder,'pednet_poin
 
     return pednet_ct
 
+def pednet_NIA(pednet,nia,preprocessing_folder):
+    mapping=os.path.join(preprocessing_folder,"road_nia_mapping.txt")
+    with open(mapping, 'r') as f:
+        D = json.load(f)
+    df_road=pd.DataFrame.from_dict(D)
+    df_road = df_road[int(nia.iloc[0]["area_s_cd"])==nia]
+    pednet_nia = pednet[pednet['OBJECTID'].isin(list(df_road["roadID"].values))]
+    pednet_nia=pednet_nia.reset_index()
+
+    return pednet_nia
 
 def nodes_census(pednet,ct,mapping=os.path.join(preprocessing_folder,'pednet_points/road_CT_mapping.txt')):
     with open(mapping, 'r') as f:
