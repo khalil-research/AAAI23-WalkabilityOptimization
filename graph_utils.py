@@ -153,7 +153,7 @@ def pednet_NIA(pednet,nia,preprocessing_folder):
     with open(mapping, 'r') as f:
         D = json.load(f)
     df_road=pd.DataFrame.from_dict(D)
-    df_road = df_road[int(nia.iloc[0]["area_s_cd"])==nia]
+    df_road = df_road[df_road["niaID"]==nia]
     pednet_nia = pednet[pednet['OBJECTID'].isin(list(df_road["roadID"].values))]
     pednet_nia=pednet_nia.reset_index()
 

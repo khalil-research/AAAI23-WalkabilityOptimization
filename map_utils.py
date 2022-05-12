@@ -45,6 +45,28 @@ def get_CTs_boundary(CTs, use, file_path="data/lct_000b16a_e/lct_000b16a_e.shp")
 
     return boundary
 
+def get_NIAs_boundary(nia, use, data_root):
+    boundary = gpd.read_file(os.path.join(data_root, "neighbourhood-improvement-areas-wgs84/NEIGHBOURHOOD_IMPROVEMENT_AREA_WGS84.shp"))
+
+    print("CT file crs is: "+ str(boundary.crs))
+    crs = {'init': 'epsg:4326'}
+    boundary = gpd.GeoDataFrame(boundary, crs=crs, geometry='geometry')
+
+    if use=="ox":
+        boundary = boundary.to_crs({'init': 'epsg:4326'})
+    elif use=="pednet":
+        boundary = boundary.to_crs({'init': 'epsg:2019'})
+    else:
+        print("NEED TO SPECIFY CPRS !!!")
+        return
+
+    boundary.columns = map(str.lower, boundary.columns)
+    boundary["area_s_cd"] = boundary["area_s_cd"].apply(lambda x: int(x))
+
+    boundary = boundary[boundary["area_s_cd"] == nia]
+
+    return boundary
+
 def query_ox(polygons,tags):
     # might want to sava this to disk
     frames=[]
@@ -80,7 +102,6 @@ def road_points(root,outputfile="./preprocessing/road_end_points.txt",prec=2):
 
     # original copy in test.py
     # pednet_path="zip://data/pednet.zip"
-    root="/Users/weimin/Documents/MASC/walkability_data"
     pednet_path = os.path.join(root,"pednet.zip")
 
     # reading pednet file
@@ -132,7 +153,7 @@ def road_nia_mapping(data_root, preprocessing_folder, outputfile):
 
     # assign road segments (end points) to census tract
     for row in range(len(nia)):
-        nia_id = int(nia.iloc[0]["area_s_cd"]) # nia name
+        nia_id = int(nia.iloc[row]["area_s_cd"]) # nia name
         poly = nia.iloc[row]['geometry']  # nia_boundary
 
         for j in range(len(x_list)):
