@@ -19,7 +19,6 @@ parser.add_argument("cc", help="run on compute canada?",
 args = parser.parse_args()
 
 
-D_NIA=ct_nia_mapping("./data/neighbourhood-improvement-areas-wgs84/processed_TSNS 2020 NIA Census Tracts.xlsx")
 #D_NIA=ct_nia_mapping("./data/neighbourhood-improvement-areas-wgs84/pieces.xlsx")
 EXISTING_AMENITIES=False
 WALK_SCORE = True
@@ -28,21 +27,23 @@ WALK_SCORE = True
 
 nia_list=[int(x) for x in args.nias.split(',')]
 if args.cc==1:
-    preprocessing_folder = "preprocessing_pickle4"
+    data_root = "/home/huangw98/projects/def-khalile2/huangw98/walkability_data"
+    preprocessing_folder = "./preprocessing"
     threads = 48
     solver_path = "/home/huangw98/modulefiles/mycplex/cpoptimizer/bin/x86-64_linux/cpoptimizer"
 elif args.cc==0:
-    preprocessing_folder = "preprocessing_pickle4"
+    data_root = "/Users/weimin/Documents/MASC/walkability_data"
+    preprocessing_folder = "./preprocessing"
     threads = 18
     solver_path = "/Applications/CPLEX_Studio201/cpoptimizer/bin/x86-64_osx/cpoptimizer"
 else:
     print("run on compute canada?")
 
+D_NIA = ct_nia_mapping(os.path.join(data_root,"neighbourhood-improvement-areas-wgs84/processed_TSNS 2020 NIA Census Tracts.xlsx"))
+
 
 models_folder = "models"
 results_folder = "results"
-
-
 
 allocated_folder = os.path.join(results_folder,os.path.join("map_back",args.model))
 visual_folder = os.path.join(results_folder,os.path.join("visualization",args.model))
