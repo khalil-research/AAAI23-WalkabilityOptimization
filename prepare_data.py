@@ -34,9 +34,24 @@ def nia_preprocessing(nia_id):
 
     prec=2
     pednet_nia = pednet_NIA(pednet,nia_id,preprocessing_folder)
-    G = create_graph(pednet_nia, precision=prec)
+
+    # networkx graph
+    G_raw = create_graph(pednet_nia, precision=prec)
+    subgraphs = list(G_raw.subgraph(c) for c in nx.connected_components(G_raw))
+    # get the largest connect component
+    sugbraph_index = [len(g.nodes) for g in subgraphs].index(max([len(g.nodes) for g in subgraphs]))
+    G=subgraphs[sugbraph_index]
+
+    # shortest paths
+    SP_mat=nx.floyd_warshall_numpy(G,weight='length')
+    SP_filename = "NIA_%s_prec_%s.txt" % (nia_id, prec)
+    np.savetxt(os.path.join(sp_save_path, SP_filename), SP_mat)
+
+    # pandana net
     net_filename="NIA_%s_prec_%s.hd5" % (nia_id, prec)
-    transit_ped_net=get_pandana_net(G,os.path.join(net_save_path,net_filename))
+    transit_ped_net = get_pandana_net(G)
+    transit_ped_net.save_hdf5(os.path.join(net_save_path, net_filename))
+
 
     residentials_df = query_ox(get_NIAs_boundary(nia_id, "ox", data_root).geometry.values, tag_residential)
     malls_df=query_ox(get_NIAs_boundary(nia_id, "ox", data_root).geometry.values,tag_mall)
@@ -69,9 +84,6 @@ def nia_preprocessing(nia_id):
         df_filename = "NIA_%s_%s.pkl" % (nia_id, all_strs[i])
         df.to_pickle(os.path.join(df_save_path, df_filename))
 
-    SP_filename = "NIA_%s_prec_%s.txt" % (nia_id, prec)
-    D = get_SP(transit_ped_net, save_path=os.path.join(sp_save_path, SP_filename))
-    print("max dist in network: ",np.max(D))
 
     plt.savefig(os.path.join(data_visual_save_path,"nia_%s.png" % (nia_id)))
 

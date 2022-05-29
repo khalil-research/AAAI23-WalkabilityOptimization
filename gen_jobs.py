@@ -26,7 +26,7 @@ def preprocess_pednet_jobs():
 
 
 def preprocess_nia_jobs():
-    data_root = "/home/huangw98/projects/def-khalile2/huangw98/walkability_data"
+    data_root = "/Users/weimin/Documents/MASC/walkability_data"
     D_NIA = ct_nia_mapping(
         os.path.join(data_root, "neighbourhood-improvement-areas-wgs84/processed_TSNS 2020 NIA Census Tracts.xlsx"))
     all_nias = list(D_NIA.keys())
@@ -47,7 +47,7 @@ def preprocess_nia_jobs():
             the_file.write('export PYTHONPATH=$PYTHONPATH:/home/huangw98/modulefiles/lib/python/\n')
             the_file.write('export LD_LIBRARY_PATH=/home/huangw98/build2/lib:$LD_LIBRARY_PATH\n')
             the_file.write('cd /home/huangw98/projects/def-khalile2/huangw98/walkability/\n')
-            the_file.write('python prepare_data.py {} {}\n'.format(1, nia))
+            the_file.write('python prepare_data.py {} --nia {}\n'.format(1, nia))
             the_file.write('deactivate')
 
     return
@@ -111,4 +111,4 @@ if __name__ == "__main__":
     folder = 'jobs_walkability'
     account = 'rrg-khalile2'
     Path(folder).mkdir(parents=True, exist_ok=True)
-    preprocess_pednet_jobs()
+    preprocess_nia_jobs()

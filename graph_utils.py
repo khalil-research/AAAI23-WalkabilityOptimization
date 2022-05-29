@@ -64,76 +64,94 @@ def create_graph(gdf, precision=3):
 
     return G
 
-# from https://github.com/gcc-dav-official-github/dav_cot_walkability/blob/master/code/TTC%20Walkability%20Tutorial.ipynb
-def creat_pandana_net(G, save_path, save=True): #probably will not use
+# # from https://github.com/gcc-dav-official-github/dav_cot_walkability/blob/master/code/TTC%20Walkability%20Tutorial.ipynb
+# def creat_pandana_net_older(G, save_path, save=True): #probably will not use
+#
+#     # create a pandana net
+#     # get network "from" and "to" from nodes
+#     edges = nx.to_pandas_edgelist(G, 'from', 'to')
+#     to = edges['to'].tolist()
+#     fr = edges['from'].tolist()
+#     fr = list(set(fr))
+#     to = list(set(to))
+#     to.extend(fr)
+#     nodes = list(set(to))
+#     nodes = pd.DataFrame(nodes)
+#     nodes.columns = ['x', 'y']
+#     nodes['xy'] = nodes.apply(lambda z: (z.x, z.y), axis=1)
+#
+#     # Assigning node ids to to_node and from_node
+#
+#     nodes['id'] = nodes.index
+#     edges['to_node'] = edges['to'].map(nodes.set_index('xy').id)
+#     edges['from_node'] = edges['from'].map(nodes.set_index('xy').id)
+#
+#     # creating pandana network
+#
+#     transit_ped_net = pdna.Network(nodes["x"],
+#                                    nodes["y"],
+#                                    edges["from_node"],
+#                                    edges["to_node"],
+#                                    pd.DataFrame([edges['length']]).T,
+#                                    twoway=True)
+#
+#     # saving walkability file is optional. It can be used in the next steps if you don't have transit_ped_net in memory
+#     if save==True:
+#         transit_ped_net.save_hdf5(save_path)
+#     return transit_ped_net
 
-    # create a pandana net
-    # get network "from" and "to" from nodes
-    edges = nx.to_pandas_edgelist(G, 'from', 'to')
-    to = edges['to'].tolist()
-    fr = edges['from'].tolist()
-    fr = list(set(fr))
-    to = list(set(to))
-    to.extend(fr)
-    nodes = list(set(to))
-    nodes = pd.DataFrame(nodes)
-    nodes.columns = ['x', 'y']
-    nodes['xy'] = nodes.apply(lambda z: (z.x, z.y), axis=1)
+# # adapted from https://github.com/gcc-dav-official-github/dav_cot_walkability/blob/master/code/TTC%20Walkability%20Tutorial.ipynb
+# def get_pandana_net_old(G, save_path):
+#     if not os.path.exists(save_path):
+#         # create a pandana net
+#         # get network "from" and "to" from nodes
+#         edges = nx.to_pandas_edgelist(G, 'from', 'to')
+#         to = edges['to'].tolist()
+#         fr = edges['from'].tolist()
+#         fr = list(set(fr))
+#         to = list(set(to))
+#         to.extend(fr)
+#         nodes = list(set(to))
+#         nodes = pd.DataFrame(nodes)
+#         nodes.columns = ['x', 'y']
+#         nodes['xy'] = nodes.apply(lambda z: (z.x, z.y), axis=1)
+#
+#         # Assigning node ids to to_node and from_node
+#
+#         nodes['id'] = nodes.index
+#         edges['to_node'] = edges['to'].map(nodes.set_index('xy').id)
+#         edges['from_node'] = edges['from'].map(nodes.set_index('xy').id)
+#
+#         # creating pandana network
+#
+#         transit_ped_net = pdna.Network(nodes["x"],
+#                                        nodes["y"],
+#                                        edges["from_node"],
+#                                        edges["to_node"],
+#                                        pd.DataFrame([edges['length']]).T,
+#                                        twoway=True)
+#         transit_ped_net.save_hdf5(save_path)
+#     else:
+#         transit_ped_net = pdna.Network.from_hdf5(save_path)
+#     return transit_ped_net
 
-    # Assigning node ids to to_node and from_node
+def get_pandana_net(G):
+    ''' convert a networkx graph to pandana graph'''
 
-    nodes['id'] = nodes.index
-    edges['to_node'] = edges['to'].map(nodes.set_index('xy').id)
-    edges['from_node'] = edges['from'].map(nodes.set_index('xy').id)
+    all_nodes = list(G.nodes)
+    all_edges_dist = nx.get_edge_attributes(G, 'length')
+    from_list = [all_nodes.index(node1) for (node1, node2) in list(all_edges_dist.keys())]
+    to_list = [all_nodes.index(node2) for (node1, node2) in list(all_edges_dist.keys())]
+    nodes_x = [x for (x,y) in all_nodes]
+    nodes_y = [y for (x, y) in all_nodes]
 
-    # creating pandana network
+    transit_ped_net = pdna.Network((nodes_x), (nodes_y), (from_list),
+                 (to_list),
+                 pd.DataFrame(list(all_edges_dist.values())),
+                 twoway=True)
 
-    transit_ped_net = pdna.Network(nodes["x"],
-                                   nodes["y"],
-                                   edges["from_node"],
-                                   edges["to_node"],
-                                   pd.DataFrame([edges['length']]).T,
-                                   twoway=True)
-
-    # saving walkability file is optional. It can be used in the next steps if you don't have transit_ped_net in memory
-    if save==True:
-        transit_ped_net.save_hdf5(save_path)
     return transit_ped_net
 
-# adapted from https://github.com/gcc-dav-official-github/dav_cot_walkability/blob/master/code/TTC%20Walkability%20Tutorial.ipynb
-def get_pandana_net(G, save_path):
-    if not os.path.exists(save_path):
-        # create a pandana net
-        # get network "from" and "to" from nodes
-        edges = nx.to_pandas_edgelist(G, 'from', 'to')
-        to = edges['to'].tolist()
-        fr = edges['from'].tolist()
-        fr = list(set(fr))
-        to = list(set(to))
-        to.extend(fr)
-        nodes = list(set(to))
-        nodes = pd.DataFrame(nodes)
-        nodes.columns = ['x', 'y']
-        nodes['xy'] = nodes.apply(lambda z: (z.x, z.y), axis=1)
-
-        # Assigning node ids to to_node and from_node
-
-        nodes['id'] = nodes.index
-        edges['to_node'] = edges['to'].map(nodes.set_index('xy').id)
-        edges['from_node'] = edges['from'].map(nodes.set_index('xy').id)
-
-        # creating pandana network
-
-        transit_ped_net = pdna.Network(nodes["x"],
-                                       nodes["y"],
-                                       edges["from_node"],
-                                       edges["to_node"],
-                                       pd.DataFrame([edges['length']]).T,
-                                       twoway=True)
-        transit_ped_net.save_hdf5(save_path)
-    else:
-        transit_ped_net = pdna.Network.from_hdf5(save_path)
-    return transit_ped_net
 
 def pednet_CTs(pednet,CTs,mapping=os.path.join(preprocessing_folder,'pednet_points/road_CT_mapping.txt')):
     with open(mapping, 'r') as f:
@@ -234,14 +252,14 @@ if __name__ == "__main__":
     crs = {'init': 'epsg:4326'}
     pednet = gpd.GeoDataFrame(pednet, crs=crs, geometry='geometry')
     pednet = pednet.to_crs({'init': 'epsg:2019'})
-    pednet = pednet[
-        ['OBJECTID', 'road_type', 'sdwlk_code', 'sdwlk_desc', 'crosswalk', 'cwalk_type', 'px', 'px_type', 'geometry']]
+    #pednet = pednet[
+    #    ['OBJECTID', 'road_type', 'sdwlk_code', 'sdwlk_desc', 'crosswalk', 'cwalk_type', 'px', 'px_type', 'geometry']]
 
-    CT='0363.07'
-    pednet_ct=pednet_census(pednet,CT)
+    #CT='0363.07'
+    #pednet_ct=pednet_census(pednet,CT)
 
-    G = create_graph(pednet_ct,precision=2)
+    #G = create_graph(pednet_ct,precision=2)
     #G2=create_graph(pednet)
-    transit_ped_net=creat_pandana_net(G,name=CT)
+    #transit_ped_net=creat_pandana_net(G,name=CT)
 
 
