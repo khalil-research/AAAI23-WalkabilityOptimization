@@ -10,8 +10,9 @@ import matplotlib.pyplot as plt
 L_a=[0,400,1800,2400,5000000]
 L_f_a=[100,95,10,0,0]
 
-k = [1, 2, 2, 3, 1]
+amenity_bound_list = [1, 2, 2, 3, 1]
 #k = [1, 1, 1, 1, 1]
+
 w=[0.3,0.2,0.2,0.2,0.1]
 
 #time_limit=9*60*60

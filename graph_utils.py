@@ -135,20 +135,24 @@ def create_graph(gdf, precision=3):
 #         transit_ped_net = pdna.Network.from_hdf5(save_path)
 #     return transit_ped_net
 
-def get_pandana_net(G):
+def get_pandana_net(G,save_path):
     ''' convert a networkx graph to pandana graph'''
 
-    all_nodes = list(G.nodes)
-    all_edges_dist = nx.get_edge_attributes(G, 'length')
-    from_list = [all_nodes.index(node1) for (node1, node2) in list(all_edges_dist.keys())]
-    to_list = [all_nodes.index(node2) for (node1, node2) in list(all_edges_dist.keys())]
-    nodes_x = [x for (x,y) in all_nodes]
-    nodes_y = [y for (x, y) in all_nodes]
+    if not os.path.exists(save_path):
 
-    transit_ped_net = pdna.Network((nodes_x), (nodes_y), (from_list),
-                 (to_list),
-                 pd.DataFrame(list(all_edges_dist.values())),
-                 twoway=True)
+        all_nodes = list(G.nodes)
+        all_edges_dist = nx.get_edge_attributes(G, 'length')
+        from_list = [all_nodes.index(node1) for (node1, node2) in list(all_edges_dist.keys())]
+        to_list = [all_nodes.index(node2) for (node1, node2) in list(all_edges_dist.keys())]
+        nodes_x = [x for (x,y) in all_nodes]
+        nodes_y = [y for (x, y) in all_nodes]
+
+        transit_ped_net = pdna.Network((nodes_x), (nodes_y), (from_list),
+                     (to_list),
+                     pd.DataFrame(list(all_edges_dist.values())),
+                     twoway=True)
+    else:
+        transit_ped_net = pdna.Network.from_hdf5(save_path)
 
     return transit_ped_net
 
