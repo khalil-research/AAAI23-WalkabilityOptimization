@@ -82,7 +82,6 @@ def MILP_comp(df_from,df_to,SP_matrix,solver_path, EPS=1.e-6):
     l = model.addVars(l_list, vtype=GRB.CONTINUOUS, name='dist')
     h = model.addVars(h_list, vtype=GRB.BINARY, name='helper')
 
-
     # Constraints
     # activation
     for i in range(num_residents):

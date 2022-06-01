@@ -58,13 +58,13 @@ def opt_job():
     all_31_nia = [2, 3, 5, 6, 21, 22, 24, 25, 26, 27, 28, 43, 44, 55, 61, 72, 85, 91, 110, 111, 112, 113, 115, 121, 124, 125, 135,
      136, 137, 138, 139]
 
-#    counter=0
+    counter=0
 
     for model in all_models:
         for nia in all_31_nia:
             for amenity in ['grocery', 'school', 'restaurant']:
                 for k in range(10):
-                    with open('{}/opt_job_nia_{}_{}_{}.sh'.format(folder,nia,k,amenity), 'w') as the_file:
+                    with open('{}/opt_job_{}.sh'.format(folder,counter), 'w') as the_file:
                         the_file.write('#!/bin/bash\n')
                         the_file.write('#SBATCH --account={}\n'.format(account))
                         the_file.write('#SBATCH --output=walk_slurms/opt_job_nia_{}_{}_{}.out'.format(nia,k,amenity))
@@ -79,10 +79,10 @@ def opt_job():
                         the_file.write('export LD_LIBRARY_PATH=/home/huangw98/build/lib:$LD_LIBRARY_PATH\n')
                         the_file.write('export PYTHONPATH=$PYTHONPATH:/home/huangw98/modulefiles/lib/python/\n')
                         the_file.write('export LD_LIBRARY_PATH=/home/huangw98/build2/lib:$LD_LIBRARY_PATH\n')
-                        the_file.write('cd /home/huangw98/projects/def-khalile2/huangw98/courseProj/\n')
-                        the_file.write('python optimize.py {} {} --cc --k {} --amenity {}\n'.format(model,nia,k, amenity))
+                        the_file.write('cd /home/huangw98/projects/def-khalile2/huangw98/walkability/\n')
+                        the_file.write('python optimize.py {} {} --cc True --k {} --amenity {}\n'.format(model,nia,k, amenity))
                         the_file.write('deactivate')
-                    #counter+=1
+                    counter+=1
 
     return
 

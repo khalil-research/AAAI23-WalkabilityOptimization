@@ -2,7 +2,7 @@ from graph_utils import *
 from map_utils import *
 #from CP_models import *
 #from MIP_models import *
-from model_latest import opt_single, cur_assignments
+from model_latest import opt_single, cur_assignment_single
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import argparse
@@ -11,19 +11,14 @@ from pathlib import Path
 import numpy as np
 
 parser = argparse.ArgumentParser(description='Enter model name:grb_PWL,scratch')
-parser.add_argument("model", help="model",
-                    type=str)
-parser.add_argument("nias", help="nias to run",
-                    type=str)
-parser.add_argument("--cc", help="run on compute canada?",
-                    type=bool)
-parser.add_argument("--amenity", help="run on compute canada?",
-                    type=str)
-parser.add_argument("--k", help="upper bound",
-                    type=int)
+parser.add_argument("model", help="model", type=str)
+parser.add_argument("nias", help="nias to run", type=str)
+parser.add_argument("--cc", help="run on compute canada?", type=bool)
+parser.add_argument("--amenity", help="run on compute canada?", type=str)
+parser.add_argument("--k", help="upper bound", type=int)
+parser.add_argument("--k_array", help="upper bound", type=str)
 args = parser.parse_args()
 
-nia_list=[int(x) for x in args.nias.split(',')]
 
 if args.cc:
     data_root = "/home/huangw98/projects/def-khalile2/huangw98/walkability_data"
@@ -59,6 +54,8 @@ Path(summary_folder).mkdir(parents=True,exist_ok=True)
 
 if __name__ == "__main__":
 
+    nia_list = [int(x) for x in args.nias.split(',')]
+
     pednet = load_pednet(data_root)
     nia_id_L = []
     nia_name_L = []
@@ -89,7 +86,7 @@ if __name__ == "__main__":
         colors = ['g', 'lightcoral', 'grey', 'red', 'yellow', 'brown', 'orange']
         df_filenames = ["NIA_%s_%s.pkl" % (nia_id, str) for str in all_strs]
         all_dfs = [pd.read_pickle(os.path.join(df_save_path, df_filename)) for df_filename in df_filenames]
-        residentials_df, malls_df, parking_df, grocery_df, school_df, coffee_df, restaruant_df = all_dfs
+        residentials_df, malls_df, parking_df, grocery_df, school_df, coffee_df, restaurant_df = all_dfs
 
         # load SP
         SP_filename = "NIA_%s_prec_%s.txt" % (nia_id, prec)
@@ -145,31 +142,36 @@ if __name__ == "__main__":
                     residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, EPS = 0.5)
             else:
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
-                score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing = cur_assignments(residentials_df,amenity_df, D,EPS=0.5)
+                score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing = cur_assignment_single(residentials_df,amenity_df, D,EPS=0.5)
 
-        if args.model == 'OptMultiple':
-            amenity_type = args.amenity
-            amenity_df = all_dfs[all_strs.index(args.amenity)]
-            log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, k, args.amenity))
-            obj_value, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing = opt_multiple(
-                residentials_df, parking_df, amenity_array, D, k_array, threads, log_file_name, EPS = 0.5)
+        elif args.model == 'OptMultiple':
+            if args.k_array:
+                k_array = [int(x) for x in args.k_array.split(',')]
+                log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s.txt" % (nia_id, k_array))
+                score_obj, dist_obj_amenities, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing_amenities = opt_multiple(
+                    residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name, EPS = 0.5)
+            else:
+                pass
+                #TODO: get cur assginement for multiple case. can run the single version for each amnenity
+                # run 3 MIPs separately
+
         else:
             print("choose model name")
 
         # save allocated results for mapping
         if args.k:
-            allocated_f_name=os.path.join(sol_folder,"allocation_NIA_%s_%s_%s.csv" % (nia_id,args.k,args.amenity))
-            assigned_f_name=os.path.join(sol_folder,"assignment_NIA_%s_%s_%s.csv" % (nia_id,args.k,args.amenity))
-            model_f_name = os.path.join(sol_folder,"NIA_%s_%s_%s.sol" % (nia_id,args.k,args.amenity))
+            k=args.k
         else:
-            allocated_f_name=os.path.join(sol_folder,"allocation_NIA_%s_%s_%s.csv" % (nia_id,0,args.amenity))
-            assigned_f_name=os.path.join(sol_folder,"assignment_NIA_%s_%s_%s.csv" % (nia_id,0,args.amenity))
-            model_f_name = os.path.join(sol_folder,"NIA_%s_%s_%s.sol" % (nia_id,0,args.amenity))
+            k=0
+        allocated_f_name=os.path.join(sol_folder,"allocation_NIA_%s_%s_%s.csv" % (nia_id,k,args.amenity))
+        assigned_f_name=os.path.join(sol_folder,"assignment_NIA_%s_%s_%s.csv" % (nia_id,k,args.amenity))
+        model_f_name = os.path.join(sol_folder,"NIA_%s_%s_%s.sol" % (nia_id,k,args.amenity))
 
-        if args.k:
-            pd.DataFrame.from_dict(allocated_D).to_csv(allocated_f_name)
         pd.DataFrame.from_dict(assigned_D).to_csv(assigned_f_name)
         m.write(model_f_name)
+        if args.k:
+            pd.DataFrame.from_dict(allocated_D).to_csv(allocated_f_name)
+
         # write log
         # text_file = open(os.path.join(log_folder, args.model + '_' + str(nia_id) + '.txt'), "w")
         # text_file.write(log)
@@ -222,6 +224,8 @@ if __name__ == "__main__":
                 fig_name = "nia_%s_%s_allocation_%s.png" % (nia_id, 0, args.amenity)
 
             plt.savefig(os.path.join(visual_folder,fig_name))
+
+        # save results summary
 
         results_D={
                 "nia_id":nia_id_L,
