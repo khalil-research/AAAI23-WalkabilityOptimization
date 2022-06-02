@@ -12,7 +12,7 @@ L_a=[0,400,1800,2400,5000000]
 L_f_a=[100,95,10,0,0]
 weights_array = [3/7,3/7,1/7] # grocery, restaurant, school (temp)
 
-def opt_single(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,EPS=0.5,BranchPriority=False):
+def opt_single(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,EPS=0.5,bp=False):
     '''single amenity case, no depth of choice'''
 
     if len(df_from)>0:
@@ -51,14 +51,16 @@ def opt_single(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,E
     a = m.addVars(num_residents, vtype=GRB.CONTINUOUS, name='dist')
     f = m.addVars(num_residents, vtype=GRB.CONTINUOUS, ub=100,name='score')
 
-    # m.update()
-    # # branching priority
-    # # if BranchPriority:
-    # for j in range(num_allocation):
-    #     y[j].setAttr("BranchPriority", 100)
-    # m.update()
-    # # for (n,m) in cartesian_prod_assign:
-    # #     x[(n,m)].setAttr("BranchPriority",0)
+    if bp:
+        print("branch priority set")
+        m.update()
+        # branching priority
+        # if BranchPriority:
+        for j in range(num_allocation):
+            y[j].setAttr("BranchPriority", 100)
+        m.update()
+        # for (n,m) in cartesian_prod_assign:
+        #     x[(n,m)].setAttr("BranchPriority",0)
 
     # Constraints
     ## WalkScore
