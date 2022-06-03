@@ -2,7 +2,7 @@ from graph_utils import *
 from map_utils import *
 #from CP_models import *
 #from MIP_models import *
-from model_latest import opt_single, cur_assignment_single, opt_multiple
+from model_latest import opt_single, cur_assignment_single, opt_multiple, opt_single_depth, cur_assignment_single_depth
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import argparse
@@ -146,17 +146,19 @@ if __name__ == "__main__":
             else:
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
                 score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing, status = cur_assignment_single(residentials_df,amenity_df, D,args.bp, args.focus,EPS=0.5)
+        if args.model == 'OptSingleDepth':
+            amenity_type = args.amenity
+            amenity_df = all_dfs[all_strs.index(args.amenity)]
+            if args.k:
+                log_file_name = os.path.join(sol_folder,
+                                             "log_NIA_%s_%s_%s.txt" % (nia_id, args.k, args.amenity))
+                score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single_depth(
+                    residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, args.bp, args.focus, EPS=0.5)
+            else:
+                log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
+                score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing, status = cur_assignment_single_depth(residentials_df,amenity_df, D,args.bp, args.focus,EPS=0.5)
 
-        # if args.model == 'OptSingleBP':
-        #     amenity_type = args.amenity
-        #     amenity_df = all_dfs[all_strs.index(args.amenity)]
-        #     if args.k:
-        #         log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, args.k, args.amenity))
-        #         score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single(
-        #             residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, EPS = 0.5, bp=True)
-        #     else:
-        #         log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
-        #         score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing, status = cur_assignment_single(residentials_df,amenity_df, D,EPS=0.5)
+
 
         elif args.model == 'OptMultiple':
             if args.k_array:
