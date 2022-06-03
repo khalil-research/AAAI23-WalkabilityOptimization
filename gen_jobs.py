@@ -54,7 +54,7 @@ def preprocess_nia_jobs():
 
 def opt_job():
 
-    all_models=['OptSingle']
+    all_models=['OptSingleBP']
     all_31_nia = [2, 3, 5, 6, 21, 22, 24, 25, 26, 27, 28, 43, 44, 55, 61, 72, 85, 91, 110, 111, 112, 113, 115, 121, 124, 125, 135,
      136, 137, 138, 139]
 

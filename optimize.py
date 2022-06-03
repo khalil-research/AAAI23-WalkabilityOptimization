@@ -17,6 +17,8 @@ parser.add_argument("--cc", help="run on compute canada?", type=bool)
 parser.add_argument("--amenity", help="run on compute canada?", type=str)
 parser.add_argument("--k", help="upper bound", type=int)
 parser.add_argument("--k_array", help="upper bound", type=str)
+parser.add_argument("--bp", help="whether to set branching priority", default=False,type=lambda x: (str(x).lower() == 'true'))
+parser.add_argument("--focus", help="MIPFocus parameter", default=0,type=int)
 args = parser.parse_args()
 
 
@@ -42,12 +44,12 @@ net_save_path = os.path.join(preprocessing_folder, 'saved_nets')
 df_save_path = os.path.join(preprocessing_folder, 'saved_dfs')
 sp_save_path = os.path.join(preprocessing_folder, 'saved_SPs')
 
-allocated_folder = os.path.join(results_folder,os.path.join("sol",args.model))
-visual_folder = os.path.join(results_folder,os.path.join("visualization",args.model))
-sol_folder = os.path.join(results_folder,os.path.join("sol",args.model))
-summary_folder = os.path.join(results_folder,os.path.join("summary",args.model))
+model_save_name = args.model + "_" + str(args.bp) + "_" + str(args.focus)
 
-Path(allocated_folder).mkdir(parents=True, exist_ok=True)
+visual_folder = os.path.join(results_folder,os.path.join("visualization",model_save_name))
+sol_folder = os.path.join(results_folder,os.path.join("sol",model_save_name))
+summary_folder = os.path.join(results_folder,os.path.join("summary",model_save_name))
+
 Path(visual_folder).mkdir(parents=True, exist_ok=True)
 Path(sol_folder).mkdir(parents=True,exist_ok=True)
 Path(summary_folder).mkdir(parents=True,exist_ok=True)
@@ -66,20 +68,21 @@ if __name__ == "__main__":
     num_residents_L = []
     num_allocations_L = []
     num_existing_L = []
+    status_L = []
 
     for nia_id in nia_list:
 
         pednet_nia = pednet_NIA(pednet, nia_id, preprocessing_folder)
         print("NIA ",nia_id)
 
-        # load net
+        # # load net
         prec = 2
-        net_filename = "NIA_%s_prec_%s.hd5" % (nia_id, prec)
-        if os.path.exists(os.path.join(net_save_path, net_filename)):
-            transit_ped_net = pdna.Network.from_hdf5(os.path.join(net_save_path, net_filename))
-        else:
-            G = create_graph(pednet_nia, precision=prec)
-            transit_ped_net = get_pandana_net(G, os.path.join(net_save_path, net_filename))
+        # net_filename = "NIA_%s_prec_%s.hd5" % (nia_id, prec)
+        # if os.path.exists(os.path.join(net_save_path, net_filename)):
+        #     transit_ped_net = pdna.Network.from_hdf5(os.path.join(net_save_path, net_filename))
+        # else:
+        #     G = create_graph(pednet_nia, precision=prec)
+        #     transit_ped_net = get_pandana_net(G, os.path.join(net_save_path, net_filename))
 
         # load dfs
         all_strs = ['residential', 'mall', 'parking', 'grocery', 'school', 'coffee', 'restaurant']
@@ -138,29 +141,29 @@ if __name__ == "__main__":
             amenity_df = all_dfs[all_strs.index(args.amenity)]
             if args.k:
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, args.k, args.amenity))
-                score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing = opt_single(
-                    residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, EPS = 0.5)
+                score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single(
+                    residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, args.bp, args.focus, EPS = 0.5)
             else:
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
-                score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing = cur_assignment_single(residentials_df,amenity_df, D,EPS=0.5)
+                score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing, status = cur_assignment_single(residentials_df,amenity_df, D,args.bp, args.focus,EPS=0.5)
 
-        if args.model == 'OptSingleBP':
-            amenity_type = args.amenity
-            amenity_df = all_dfs[all_strs.index(args.amenity)]
-            if args.k:
-                log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, args.k, args.amenity))
-                score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing = opt_single(
-                    residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, EPS = 0.5, bp=True)
-            else:
-                log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
-                score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing = cur_assignment_single(residentials_df,amenity_df, D,EPS=0.5)
+        # if args.model == 'OptSingleBP':
+        #     amenity_type = args.amenity
+        #     amenity_df = all_dfs[all_strs.index(args.amenity)]
+        #     if args.k:
+        #         log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, args.k, args.amenity))
+        #         score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single(
+        #             residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, EPS = 0.5, bp=True)
+        #     else:
+        #         log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
+        #         score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing, status = cur_assignment_single(residentials_df,amenity_df, D,EPS=0.5)
 
         elif args.model == 'OptMultiple':
             if args.k_array:
                 k_array = [int(x) for x in args.k_array.split(',')]
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s.txt" % (nia_id, k_array))
-                score_obj, dist_obj_amenities, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing_amenities = opt_multiple(
-                    residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name, EPS = 0.5)
+                score_obj, dist_obj_amenities, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing_amenities, status = opt_multiple(
+                    residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name,args.bp, args.focus, EPS = 0.5)
             else:
                 pass
                 #TODO: get cur assginement for multiple case. can run the single version for each amnenity
@@ -203,6 +206,7 @@ if __name__ == "__main__":
         solving_time_L.append(solving_time)
         num_residents_L.append(num_residents)
         num_existing_L.append(num_existing)
+        status_L.append(status)
 
         # plot
         if args.k:
@@ -248,7 +252,8 @@ if __name__ == "__main__":
                 "solving_time":solving_time_L,
                 "num_res":num_residents_L,
                 "num_parking":num_allocations_L,
-                "num_cur":num_existing_L
+                "num_cur":num_existing_L,
+                "model_status":status_L
         }
         if args.k:
             summary_df_filename = os.path.join(summary_folder,"NIA_%s_%s_%s.csv" % (nia_id,args.k,args.amenity))

@@ -41,6 +41,8 @@ def plot_obj_vs_k(results_df, save_folder, model_name):
 
     for nia in list(D_NIA.keys()):
         nia_df = results_df[results_df["nia_id"] == nia]
+        if len(nia_df)<10:
+            print(amenity,nia,len(nia_df))
         nia_df = nia_df.sort_values(by=['k'])
         k_list = nia_df["k"]
         score_list = nia_df["obj"]

@@ -11,8 +11,10 @@ import matplotlib.pyplot as plt
 L_a=[0,400,1800,2400,5000000]
 L_f_a=[100,95,10,0,0]
 weights_array = [3/7,3/7,1/7] # grocery, restaurant, school (temp)
+time_limit=10*60*60 # 10h time limit
+#time_limit=3
 
-def opt_single(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,EPS=0.5,bp=False):
+def opt_single(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,bp, focus,EPS=0.5):
     '''single amenity case, no depth of choice'''
 
     if len(df_from)>0:
@@ -84,6 +86,8 @@ def opt_single(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,E
     m.Params.Threads = threads
     m.setObjective(gp.quicksum(f[n] for n in range(num_residents))/num_residents, GRB.MAXIMIZE)
     m.setParam("LogFile", results_sava_path)
+    m.Params.TimeLimit = time_limit
+    m.Params.MIPFocus = focus
 
     m.optimize()
 
@@ -132,10 +136,10 @@ def opt_single(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,E
     obj_value = obj.getValue()
     dist_obj = np.mean(dist)
 
-    return obj_value, dist_obj, m.Runtime, m, allocated_D, assigned_D, num_residents, num_allocation, num_cur
+    return obj_value, dist_obj, m.Runtime, m, allocated_D, assigned_D, num_residents, num_allocation, num_cur, m.status
 
 
-def opt_multiple(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, k_array, threads,results_sava_path,EPS=0.5):
+def opt_multiple(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, k_array, threads,results_sava_path,bp, focus,EPS=0.5):
     '''multiple amenity case, no depth of choice'''
 
     if len(df_from)>0:
@@ -189,10 +193,12 @@ def opt_multiple(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, 
     f = m.addVars(num_residents, vtype=GRB.CONTINUOUS, ub=100, name='score')
 
     # branching priority
-    for m in range(num_allocation):
-        y[m].setAttr("BranchPriority", 5)
-    # for (n,m) in cartesian_prod_assign:
-    #     x[(n,m)].setAttr("BranchPriority",4)
+    if bp:
+        #TODO: need to modify this
+        for t in range(list(product(range(num_allocation), range(len(k_array))))):
+            y[t].setAttr("BranchPriority", 100)
+        # for (n,m) in cartesian_prod_assign:
+        #     x[(n,m)].setAttr("BranchPriority",4)
 
     # Constraints
     ## weighted distance
@@ -220,6 +226,8 @@ def opt_multiple(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, 
     m.Params.Threads = threads
     m.setObjective(gp.quicksum(f[n] for n in range(num_residents))/num_residents, GRB.MAXIMIZE)
     m.setParam("LogFile", results_sava_path)
+    m.Params.TimeLimit = time_limit
+    m.Params.MIPFocus = focus
 
     m.optimize()
 
@@ -338,13 +346,13 @@ def opt_multiple(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, 
     obj = m.getObjective()
     obj_value = obj.getValue()
 
-    return obj_value, [np.mean(dist_grocery), np.mean(dist_restaurant), np.mean(dist_school)],   m.Runtime, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school]
+    return obj_value, [np.mean(dist_grocery), np.mean(dist_restaurant), np.mean(dist_school)],   m.Runtime, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], m.status
 
-def cur_assignment_single(df_from,amenity_df, SP_matrix,EPS=1.e-6):
+def cur_assignment_single(df_from,amenity_df, SP_matrix,bp, focus,EPS=1.e-6):
     ''' get assignment for the case with no allocation, no depth of choice'''
     if len(amenity_df) == 0:
         print("no existing amenities!")
-        return 0, None, None, None, None, None, 0
+        return 0, None, None, None, None, None, 0, None
 
     m = gp.Model('cur_assignment')
     groups_from = df_from.groupby('node_ids').groups
@@ -384,7 +392,7 @@ def cur_assignment_single(df_from,amenity_df, SP_matrix,EPS=1.e-6):
         "assign_to_node_id": assign_to_node_id,
         "dist": dist}
 
-    return score_obj, obj_value, m.Runtime, m, assigned_D, num_residents, num_amenity
+    return score_obj, obj_value, m.Runtime, m, assigned_D, num_residents, num_amenity, m.status
 
 def dist_to_score(d,L_a,L_f_a):
     a = copy.deepcopy(L_a[:-1])
