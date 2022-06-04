@@ -553,10 +553,11 @@ def cur_assignment_single_depth(df_from,amenity_df, SP_matrix,bp, focus,EPS=1.e-
     ## currently existing
     m.addConstrs(((gp.quicksum(x[(n, m, c)] for c in range(tot_choices)) <= 1) for m in range(num_amenity) for n in range(num_residents)), name='choices')
     # objective
+    no_choice_sum =sum([choice_weights[c]*L_a[-2] for c in no_choices])
     m.setObjective((gp.quicksum(
-                gp.quicksum(
+        (gp.quicksum(
                      choice_weights[c]*(gp.quicksum(distances[(n, m)] * x[(n, m, c)] for m in range(num_amenity)))
-                     for c in range(len(tot_choices)))
+                     for c in range(tot_choices))+no_choice_sum)
                     for n in range(num_residents))/num_residents), GRB.MINIMIZE)
     m.optimize()
 
