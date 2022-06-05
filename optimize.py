@@ -1,8 +1,9 @@
 from graph_utils import *
 from map_utils import *
+import model_latest
 #from CP_models import *
 #from MIP_models import *
-from model_latest import opt_single, cur_assignment_single, opt_multiple, opt_single_depth, cur_assignment_single_depth
+from model_latest import opt_single, cur_assignment_single, opt_multiple, opt_single_depth, cur_assignment_single_depth, weights_array, dist_to_score, L_a, L_f_a, opt_multiple_depth, weights_array_multi, choice_weights
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import argparse
@@ -62,13 +63,20 @@ if __name__ == "__main__":
     nia_id_L = []
     nia_name_L = []
     obj_L = []
-    dist_obj_L = []
-    k_L = []
     solving_time_L = []
     num_residents_L = []
     num_allocations_L = []
-    num_existing_L = []
     status_L = []
+
+    if args.model in ['OptSingle', 'OptSingleDepth']:
+        num_existing_L = []
+        dist_obj_L = []
+        k_L = []
+
+    elif args.model in ['OptMultiple', 'OptMultipleDepth']:
+        num_existing_L_grocery, num_existing_L_restaurant, num_existing_L_school = [], [], []
+        dist_obj_L_grocery, dist_obj_L_restaurant, dist_obj_L_school = [], [], []
+        k_L_grocery, k_L_restaurant, k_L_school = [], [], []
 
     for nia_id in nia_list:
 
@@ -146,7 +154,7 @@ if __name__ == "__main__":
             else:
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
                 score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing, status = cur_assignment_single(residentials_df,amenity_df, D,args.bp, args.focus,EPS=0.5)
-        if args.model == 'OptSingleDepth':
+        elif args.model == 'OptSingleDepth':
             amenity_type = args.amenity
             amenity_df = all_dfs[all_strs.index(args.amenity)]
             if args.k:
@@ -158,36 +166,95 @@ if __name__ == "__main__":
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
                 score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing, status = cur_assignment_single_depth(residentials_df,amenity_df, D,args.bp, args.focus,EPS=0.5)
 
-
-
         elif args.model == 'OptMultiple':
-            if args.k_array:
+            if args.k_array != '0,0,0':
                 k_array = [int(x) for x in args.k_array.split(',')]
-                log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s.txt" % (nia_id, k_array))
-                score_obj, dist_obj_amenities, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing_amenities, status = opt_multiple(
-                    residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name,args.bp, args.focus, EPS = 0.5)
+                log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s.txt" % (nia_id, args.k_array))
+                score_obj, [dist_grocery, dist_restaurant, dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status\
+                    = opt_multiple(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name,args.bp, args.focus, EPS = 0.5)
             else:
-                pass
-                #TODO: get cur assginement for multiple case. can run the single version for each amnenity
-                # run 3 MIPs separately
-                # log file path for no amenity case?
+                multiple_dist = []
+                # grocery
+                score_obj, dist_grocery, solving_time, m, assigned_D, num_residents, num_cur_grocery, status = cur_assignment_single(residentials_df, grocery_df, D, args.bp, args.focus, EPS=0.5)
+                multiple_dist.append(assigned_D["dist"])
+                # restaurant
+                score_obj, dist_restaurant, solving_time, m, assigned_D, num_residents, num_cur_restaurant, status = cur_assignment_single(residentials_df, restaurant_df, D, args.bp, args.focus, EPS=0.5)
+                multiple_dist.append(assigned_D["dist"])
+                # school
+                score_obj, dist_school, solving_time, m, assigned_D, num_residents, num_cur_school, status = cur_assignment_single(residentials_df, school_df, D, args.bp, args.focus, EPS=0.5)
+                multiple_dist.append(assigned_D["dist"])
+
+                multiple_dist = np.array(multiple_dist)
+                weighted_dist = np.dot(np.array(weights_array), multiple_dist)
+                scores = dist_to_score(np.array(weighted_dist), L_a, L_f_a)
+                score_obj = np.mean(scores)
+
+                solving_time=None
+                status=None
+
+        elif args.model == 'OptMultipleDepth':
+            if args.k_array != '0,0,0':
+                k_array = [int(x) for x in args.k_array.split(',')]
+                log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s.txt" % (nia_id, args.k_array))
+                score_obj, [dist_grocery, dist_restaurant, dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status\
+                    = opt_multiple_depth(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name,args.bp, args.focus, EPS = 0.5)
+            else:
+                multiple_dist = []
+                # grocery
+                score_obj, dist_grocery, solving_time, m, assigned_D, num_residents, num_cur_grocery, status = cur_assignment_single(residentials_df, grocery_df, D, args.bp, args.focus, EPS=0.5)
+                multiple_dist.append(assigned_D["dist"])
+                # restaurant
+                score_obj, dist_restaurant, solving_time, m, assigned_D, num_residents, num_cur_restaurant, status = cur_assignment_single_depth(residentials_df, restaurant_df, D, args.bp, args.focus, EPS=0.5)
+
+                tot_choices = min(num_cur_restaurant, len(choice_weights))
+                for c in range(tot_choices):
+                    multiple_dist.append(assigned_D[str(c) + "_dist"])
+                for choice in range(tot_choices, len(choice_weights)):
+                    multiple_dist.append([L_a[-2]] * num_residents)
+
+                # school
+                score_obj, dist_school, solving_time, m, assigned_D, num_residents, num_cur_school, status = cur_assignment_single(residentials_df, school_df, D, args.bp, args.focus, EPS=0.5)
+                multiple_dist.append(assigned_D["dist"])
+
+                #TODO: finish this calculation: need to re-define weights
+
+                multiple_dist = np.array(multiple_dist)
+                weighted_dist = np.dot(np.array(weights_array_multi), multiple_dist)
+                scores = dist_to_score(np.array(weighted_dist), L_a, L_f_a)
+                score_obj = np.mean(scores)
+
+                solving_time=None
+                status=None
+
 
         else:
             print("choose model name")
 
         # save allocated results for mapping
-        if args.k:
-            k=args.k
-        else:
-            k=0
-        allocated_f_name=os.path.join(sol_folder,"allocation_NIA_%s_%s_%s.csv" % (nia_id,k,args.amenity))
-        assigned_f_name=os.path.join(sol_folder,"assignment_NIA_%s_%s_%s.csv" % (nia_id,k,args.amenity))
-        model_f_name = os.path.join(sol_folder,"NIA_%s_%s_%s.sol" % (nia_id,k,args.amenity))
+        if args.model in ['OptSingle','OptSingleDepth']:
+
+            if args.k:
+                k_name = args.k
+                allocated_f_name = os.path.join(sol_folder,"allocation_NIA_%s_%s_%s.csv" % (nia_id, k_name, args.amenity))
+                pd.DataFrame.from_dict(allocated_D).to_csv(allocated_f_name)
+            else:
+                k_name = 0
+
+            assigned_f_name = os.path.join(sol_folder, "assignment_NIA_%s_%s_%s.csv" % (nia_id, k_name, args.amenity))
+            model_f_name = os.path.join(sol_folder, "NIA_%s_%s_%s.sol" % (nia_id, k_name, args.amenity))
+        elif args.model in ['OptMultiple','OptMultipleDepth']:
+            if args.k_array != '0,0,0':
+                k_name = args.k_array
+                allocated_f_name = os.path.join(sol_folder, "allocation_NIA_%s_%s.csv" % (nia_id, k_name))
+                pd.DataFrame.from_dict(allocated_D).to_csv(allocated_f_name)
+            else:
+                k_name = '0,0,0'
+
+            assigned_f_name = os.path.join(sol_folder, "assignment_NIA_%s_%s.csv" % (nia_id, k_name))
+            model_f_name = os.path.join(sol_folder, "NIA_%s_%s.sol" % (nia_id, k_name))
 
         pd.DataFrame.from_dict(assigned_D).to_csv(assigned_f_name)
         m.write(model_f_name)
-        if args.k:
-            pd.DataFrame.from_dict(allocated_D).to_csv(allocated_f_name)
 
         # write log
         # text_file = open(os.path.join(log_folder, args.model + '_' + str(nia_id) + '.txt'), "w")
@@ -197,17 +264,39 @@ if __name__ == "__main__":
         # save summary
         nia_id_L.append(nia_id)
         nia_name_L.append(D_NIA[nia_id]['name'])
-        if args.k:
-            k_L.append(args.k)
-            num_allocations_L.append(num_allocation)
-        else:
-            k_L.append(0)
-            num_allocations_L.append(None)
+
+        if args.model in ['OptSingle', 'OptSingleDepth']:
+            dist_obj_L.append(dist_obj)
+            num_existing_L.append(num_existing)
+            if args.k:
+                k_L.append(args.k)
+                num_allocations_L.append(num_allocation)
+            else:
+                k_L.append(0)
+                num_allocations_L.append(None)
+
+        elif args.model in ['OptMultiple', 'OptMultipleDepth']:
+            num_existing_L_grocery.append(num_cur_grocery)
+            num_existing_L_restaurant.append(num_cur_restaurant)
+            num_existing_L_school.append(num_cur_school)
+
+            dist_obj_L_grocery.append(dist_grocery)
+            dist_obj_L_restaurant.append(dist_restaurant)
+            dist_obj_L_school.append(dist_school)
+            if args.k_array != '0,0,0':
+                k_L_grocery.append(k_array[0])
+                k_L_restaurant.append(k_array[1])
+                k_L_school.append(k_array[2])
+                num_allocations_L.append(num_allocation)
+            else:
+                k_L_grocery.append(0)
+                k_L_restaurant.append(0)
+                k_L_school.append(0)
+                num_allocations_L.append(None)
+
         obj_L.append(score_obj)
-        dist_obj_L.append(dist_obj)
         solving_time_L.append(solving_time)
         num_residents_L.append(num_residents)
-        num_existing_L.append(num_existing)
         status_L.append(status)
 
         # plot
@@ -245,22 +334,37 @@ if __name__ == "__main__":
 
         # save results summary
 
-        results_D={
-                "nia_id":nia_id_L,
-                "nia_name":nia_name_L,
-                "k":k_L,
-                "obj":obj_L,
-                "dist_obj":dist_obj_L,
-                "solving_time":solving_time_L,
-                "num_res":num_residents_L,
-                "num_parking":num_allocations_L,
-                "num_cur":num_existing_L,
-                "model_status":status_L
-        }
-        if args.k:
-            summary_df_filename = os.path.join(summary_folder,"NIA_%s_%s_%s.csv" % (nia_id,args.k,args.amenity))
-        else:
-            summary_df_filename = os.path.join(summary_folder, "NIA_%s_%s_%s.csv" % (nia_id, 0, args.amenity))
+        if args.model in ['OptSingle', 'OptSingleDepth']:
+            results_D = {
+                "nia_id": nia_id_L,
+                "nia_name": nia_name_L,
+                "k": k_L,
+                "obj": obj_L,
+                "dist_obj": dist_obj_L,
+                "solving_time": solving_time_L,
+                "num_res": num_residents_L,
+                "num_parking": num_allocations_L,
+                "num_cur": num_existing_L,
+                "model_status": status_L
+            }
+            summary_df_filename = os.path.join(summary_folder, "NIA_%s_%s_%s.csv" % (nia_id, k_name, args.amenity))
+
+        elif args.model in ['OptMultiple', 'OptMultipleDepth']:
+            results_D = {
+                "nia_id": nia_id_L,
+                "nia_name": nia_name_L,
+                "k_L_grocery": k_L_grocery, "k_L_restaurant": k_L_restaurant, "k_L_school": k_L_school,
+                "obj": obj_L,
+                "dist_obj_L_grocery": dist_obj_L_grocery, "dist_obj_L_restaurant": dist_obj_L_restaurant, "dist_obj_L_school": dist_obj_L_school,
+                "solving_time": solving_time_L,
+                "num_res": num_residents_L,
+                "num_parking": num_allocations_L,
+                "num_existing_L_grocery": num_existing_L_grocery, "num_existing_L_restaurant": num_existing_L_restaurant, "num_existing_L_school": num_existing_L_school,
+                "model_status": status_L
+            }
+            summary_df_filename = os.path.join(summary_folder, "NIA_%s_%s.csv" % (nia_id, k_name))
+
+
         summary_df = pd.DataFrame(results_D)
         summary_df.to_csv(summary_df_filename,index=False)
 

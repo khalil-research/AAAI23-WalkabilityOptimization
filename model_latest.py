@@ -16,11 +16,14 @@ amenity_weights_dict = { "grocery": [3],
 "parks": [1], "schools": [1], "books": [1], "entertainment": [1]}
 
 choice_weights_raw = np.array([.75, .45, .25, .25, .225, .225, .225, .225, .2, .2])  # for restaurant
-choice_weights = choice_weights_raw / np.sum(choice_weights_raw)  # for restaurant
+restaurant_sum = np.sum(choice_weights_raw)
+choice_weights = choice_weights_raw / restaurant_sum  # for restaurant
 
 L_a=[0,400,1800,2400,5000000]
 L_f_a=[100,95,10,0,0]
-weights_array = [3/7,3/7,1/7] # grocery, restaurant, school (temp)
+weights_array = np.array([3,restaurant_sum,1]) / (restaurant_sum+3+1) # grocery, restaurant, school (temp)
+weights_array_multi = np.array([3, .75, .45, .25, .25, .225, .225, .225, .225, .2, .2, 1]) / (restaurant_sum+3+1)
+w_choice_multi_amenity = choice_weights_raw / (restaurant_sum+3+1)
 time_limit=10*60*60 # 10h time limit
 #time_limit=3
 
@@ -363,13 +366,12 @@ def opt_multiple(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, 
             start_id += len(amenity_df)
 
     x = m.addVars(cartesian_prod_assign_grocery + cartesian_prod_assign_restaurant + cartesian_prod_assign_school, vtype=GRB.BINARY, name='assign')
-    y = m.addVars(list(product(range(num_allocation), range(len(k_array)))), vtype=GRB.INTEGER, name='activate')
+    y = m.addVars(list(product(range(num_allocation), range(len(k_array)))), vtype=GRB.BINARY, name='activate')
     l = m.addVars(num_residents, vtype=GRB.CONTINUOUS, name='dist')
     f = m.addVars(num_residents, vtype=GRB.CONTINUOUS, ub=100, name='score')
 
     # branching priority
     if bp:
-        #TODO: need to modify this
         for t in list(product(range(num_allocation), range(len(k_array)))):
             y[t].setAttr("BranchPriority", 100)
         # for (n,m) in cartesian_prod_assign:
@@ -412,24 +414,24 @@ def opt_multiple(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, 
     allocate_var_id_grocery = [(j, a) for (j, a) in allocations if a==0]
     allocate_row_id_grocery = []
     allocate_node_id_grocery = []
-    for j in allocate_var_id_grocery:
-        for l in range(int(y[(j, 0)].x)):
+    for (j, a) in allocate_var_id_grocery:
+        for l in range(int(y[(j, a)].x)):
             allocate_row_id_grocery.append(group_values_to[j][l])
             allocate_node_id_grocery.append(df_to.iloc[group_values_to[j][l]]["node_ids"])
 
     allocate_var_id_restaurant = [(j, a) for (j, a) in allocations if a==1]
     allocate_row_id_restaurant = []
     allocate_node_id_restaurant = []
-    for j in allocate_var_id_restaurant:
-        for l in range(int(y[(j, 1)].x)):
+    for (j, a) in allocate_var_id_restaurant:
+        for l in range(int(y[(j, a)].x)):
             allocate_row_id_restaurant.append(group_values_to[j][l])
             allocate_node_id_restaurant.append(df_to.iloc[group_values_to[j][l]]["node_ids"])
 
     allocate_var_id_school = [(j, a) for (j, a) in allocations if a==2]
     allocate_row_id_school = []
     allocate_node_id_school = []
-    for j in allocate_var_id_school:
-        for l in range(int(y[(j, 1)].x)):
+    for (j, a) in allocate_var_id_school:
+        for l in range(int(y[(j, a)].x)):
             allocate_row_id_school.append(group_values_to[j][l])
             allocate_node_id_school.append(df_to.iloc[group_values_to[j][l]]["node_ids"])
 
@@ -475,27 +477,27 @@ def opt_multiple(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, 
                 assign_type_grocery.append('allocated')
                 dist_grocery.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]])
             else:
-                assign_to_node_id_grocery.append(amenity_df.iloc[j-num_allocation]["node_ids"])
+                assign_to_node_id_grocery.append(grocery_df.iloc[j-num_allocation]["node_ids"])
                 assign_type_grocery.append('existing')
-                dist_grocery.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],amenity_df.iloc[j-num_allocation]["node_ids"]])
+                dist_grocery.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],grocery_df.iloc[j-num_allocation]["node_ids"]])
         elif a==1:
             if j < num_allocation:
                 assign_to_node_id_restaurant.append(df_to.iloc[group_values_to[j][0]]["node_ids"])
                 assign_type_restaurant.append('allocated')
                 dist_restaurant.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]])
             else:
-                assign_to_node_id_restaurant.append(amenity_df.iloc[j-num_allocation]["node_ids"])
+                assign_to_node_id_restaurant.append(restaurant_df.iloc[j-num_allocation-num_cur_grocery]["node_ids"])
                 assign_type_restaurant.append('existing')
-                dist_restaurant.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],amenity_df.iloc[j-num_allocation]["node_ids"]])
+                dist_restaurant.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],restaurant_df.iloc[j-num_allocation-num_cur_grocery]["node_ids"]])
         elif a==2:
             if j < num_allocation:
                 assign_to_node_id_school.append(df_to.iloc[group_values_to[j][0]]["node_ids"])
                 assign_type_school.append('allocated')
                 dist_school.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]])
             else:
-                assign_to_node_id_school.append(amenity_df.iloc[j-num_allocation]["node_ids"])
+                assign_to_node_id_school.append(school_df.iloc[j-num_allocation-num_cur_restaurant-num_cur_grocery]["node_ids"])
                 assign_type_school.append('existing')
-                dist_school.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],amenity_df.iloc[j-num_allocation]["node_ids"]])
+                dist_school.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],school_df.iloc[j-num_allocation-num_cur_restaurant-num_cur_grocery]["node_ids"]])
 
     assigned_D = {
         "assign_from_var_id_grocery": assign_from_var_id_grocery,
@@ -522,6 +524,260 @@ def opt_multiple(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, 
     obj_value = obj.getValue()
 
     return obj_value, [np.mean(dist_grocery), np.mean(dist_restaurant), np.mean(dist_school)],   m.Runtime, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], m.status
+
+
+def opt_multiple_depth(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, k_array, threads, results_sava_path, bp, focus,EPS=0.5):
+    '''multiple amenity case, with depth of choice'''
+
+    if len(df_from)>0:
+        df_from = df_from[['geometry', 'node_ids']]
+    if len(df_to)>0:
+        df_to = df_to[['geometry', 'node_ids']]
+
+    m = gp.Model('max_walk_score')
+
+    # grouping
+    groups_to=df_to.groupby('node_ids').groups # keys are node id, values are indices
+    group_values_to=list(groups_to.values())
+    num_allocation = len(group_values_to)
+    capacity = [len(item) for item in group_values_to]
+
+    groups_from = df_from.groupby('node_ids').groups
+    group_values_from = list(groups_from.values())
+    num_residents = len(group_values_from)
+
+    num_cur_grocery = len(grocery_df)
+    num_cur_restaurant = len(restaurant_df)
+    num_cur_school = len(school_df)
+
+    cur_index=num_allocation
+    range_grocery_existing = list(range(cur_index, cur_index + num_cur_grocery))
+    range_grocery_dest_list = list(range(num_allocation)) + range_grocery_existing
+    cur_index+=num_cur_grocery
+    range_restaurant_existing = list(range(cur_index, cur_index + num_cur_restaurant))
+    range_restaurant_dest_list = list(range(num_allocation)) + range_restaurant_existing
+    cur_index+=num_cur_restaurant
+    range_school_existing = list(range(cur_index, cur_index + num_cur_school))
+    range_school_dest_list = list(range(num_allocation)) + range_school_existing
+
+    cartesian_prod_assign_grocery = list(product(range(num_residents), range_grocery_dest_list, [0]))
+    cartesian_prod_assign_restaurant = list(product(range(num_residents),range_restaurant_dest_list, [1], range(len(w_choice_multi_amenity))))
+    cartesian_prod_assign_school = list(product(range(num_residents), range_school_dest_list, [2]))
+
+    cartesian_prod_allocate = list(product(range(num_residents), list(range(num_allocation)), [0,1,2]))
+
+    # retrieve distances
+    d = {(i, j): SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]] for i, j in list(product(range(num_residents), range(num_allocation)))}
+
+    for i in range(num_residents):
+        start_id = num_allocation
+        for amenity_df in [grocery_df, restaurant_df, school_df]:
+            for inst_row in range(len(amenity_df)):
+                cur_id = start_id + inst_row
+                d[(i, cur_id)] = SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], amenity_df.iloc[inst_row]["node_ids"]]
+            start_id += len(amenity_df)
+
+    x = m.addVars(cartesian_prod_assign_grocery + cartesian_prod_assign_school, vtype=GRB.BINARY, name='assign')
+    x_choice = m.addVars(cartesian_prod_assign_restaurant, vtype=GRB.BINARY, name='assign')
+    y = m.addVars(list(product(range(num_allocation), range(len(k_array)))), vtype=GRB.INTEGER, name='activate')
+    l = m.addVars(num_residents, vtype=GRB.CONTINUOUS, name='dist')
+    f = m.addVars(num_residents, vtype=GRB.CONTINUOUS, ub=100, name='score')
+
+    # branching priority
+    if bp:
+        for t in list(product(range(num_allocation), range(len(k_array)))):
+            y[t].setAttr("BranchPriority", 100)
+        # for (n,m) in cartesian_prod_assign:
+        #     x[(n,m)].setAttr("BranchPriority",4)
+
+    tot_choices = min(k_array[1] + num_cur_restaurant, len(w_choice_multi_amenity))
+    no_choices = list(range(tot_choices, len(w_choice_multi_amenity)))
+
+    # Constraints
+    ## weighted distance
+    no_choice_sum = sum([w_choice_multi_amenity[c] * L_a[-2] for c in no_choices])
+    m.addConstrs(l[i] == (
+                 (weights_array[0] * gp.quicksum(x[(i, j, 0)] * d[(i, j)] for j in range_grocery_dest_list))
+                + (gp.quicksum(w_choice_multi_amenity[c] * (gp.quicksum(x_choice[(i, j, 1, c)] * d[(i, j)] for j in range_restaurant_dest_list)) for c in range(tot_choices)) + no_choice_sum)
+                + (weights_array[2] * gp.quicksum(x[(i, j, 2)] * d[(i, j)] for j in range_school_dest_list))
+                )
+                 for i in range(num_residents))
+    # PWL score
+    for i in range(num_residents):
+        m.addGenConstrPWL(l[i], f[i], L_a, L_f_a)
+    ## assgined to one instance of amenity
+    m.addConstrs((gp.quicksum(x[(i, j, 0)] for j in range_grocery_dest_list) == 1 for i in range(num_residents)), name='grocery demand')
+    #m.addConstrs((gp.quicksum(x[(i, j, 1)] for j in range_restaurant_dest_list) == 1 for i in range(num_residents)), name='restaurant demand')
+    m.addConstrs((gp.quicksum(x[(i, j, 2)] for j in range_school_dest_list) == 1 for i in range(num_residents)), name='school demand')
+    ## assign choices
+    m.addConstrs(((gp.quicksum(x_choice[(i, j, 1, c)] for j in range_restaurant_dest_list) == 1) for c in range(tot_choices) for i in range(num_residents)), name='choices')
+    m.addConstrs(((x_choice[(i, j, 1, c)] == 0) for c in no_choices for j in range_restaurant_dest_list for i in range(num_residents)), name='no choices')
+    ## resource constraint
+    m.addConstrs(((gp.quicksum(y[(j,a)] for a in range(len(weights_array))) <= capacity[j]) for j in range(num_allocation)), name='capacity')
+    # activation
+    m.addConstrs((x[(i,j,a)] <= y[(j,a)] for (i, j ,a) in list(product(range(num_residents), list(range(num_allocation)), [0,2]))), name='activation1')
+    m.addConstrs((x_choice[(i, j, a, c)] <= y[(j, a)] for (i, j, a, c) in list(product(range(num_residents), list(range(num_allocation)),[1], range(len(w_choice_multi_amenity))))), name='activation1')
+    # resource constraint
+    m.addConstrs(((gp.quicksum(y[(j, a)] for j in range(num_allocation)) <= k_array[a]) for a in range(len(k_array))), name='resource')
+
+    # choices can not be the same place
+    ## newly allocated
+    m.addConstrs(((gp.quicksum(x_choice[(i, j, 1, c)] for c in range(tot_choices)) <= y[(j, 1)]) for j in range(num_allocation) for i in range(num_residents)), name='choices')
+    ## currently existing
+    m.addConstrs(((gp.quicksum(x_choice[(i, j, 1, c)] for c in range(tot_choices)) <= 1) for j in range_restaurant_existing for i in range(num_residents)), name='choices')
+
+    # objective
+    m.Params.Threads = threads
+    m.setObjective(gp.quicksum(f[n] for n in range(num_residents))/num_residents, GRB.MAXIMIZE)
+    m.setParam("LogFile", results_sava_path)
+    m.Params.TimeLimit = time_limit
+    m.Params.MIPFocus = focus
+
+    m.optimize()
+
+    allocations = [(j, a) for (j, a) in y.keys() if (y[(j, a)].x) > EPS]
+
+    # save allocation solutions
+    # grocery
+    allocate_var_id_grocery_ = [(j, a) for (j, a) in allocations if a==0]
+    allocate_var_id_grocery = []
+    allocate_row_id_grocery = []
+    allocate_node_id_grocery = []
+    for (j, a) in allocate_var_id_grocery_:
+        for l in range(int(y[(j, a)].x)):
+            allocate_var_id_grocery.append(j)
+            allocate_row_id_grocery.append(group_values_to[j][l])
+            allocate_node_id_grocery.append(df_to.iloc[group_values_to[j][l]]["node_ids"])
+
+    # restaurant
+    allocate_var_id_restaurant_ = [(j, a) for (j, a) in allocations if a==1]
+    allocate_var_id_restaurant = []
+    allocate_row_id_restaurant = []
+    allocate_node_id_restaurant = []
+    for (j, a) in allocate_var_id_restaurant_:
+        for l in range(int(y[(j, a)].x)):
+            allocate_var_id_restaurant.append(j)
+            allocate_row_id_restaurant.append(group_values_to[j][l])
+            allocate_node_id_restaurant.append(df_to.iloc[group_values_to[j][l]]["node_ids"])
+
+    # school
+    allocate_var_id_school_ = [(j, a) for (j, a) in allocations if a==2]
+    allocate_var_id_school = []
+    allocate_row_id_school = []
+    allocate_node_id_school = []
+    for (j, a) in allocate_var_id_school_:
+        for l in range(int(y[(j, a)].x)):
+            allocate_var_id_school.append(j)
+            allocate_row_id_school.append(group_values_to[j][l])
+            allocate_node_id_school.append(df_to.iloc[group_values_to[j][l]]["node_ids"])
+
+    allocated_D = {
+        "allocate_var_id_grocery": allocate_var_id_grocery,
+        "allocate_node_id_grocery": allocate_node_id_grocery,
+        "allocate_row_id_grocery": allocate_row_id_grocery,
+        "allocate_var_id_restaurant": allocate_var_id_restaurant,
+        "allocate_node_id_restaurant": allocate_node_id_restaurant,
+        "allocate_row_id_restaurant": allocate_row_id_restaurant,
+        "allocate_var_id_school": allocate_var_id_school,
+        "allocate_row_id_school": allocate_row_id_school,
+        "allocate_node_id_school": allocate_node_id_school
+    }
+
+    # assignments
+
+    assignments = [(i, j, a) for (i, j, a) in x.keys() if (x[(i, j, a)].x > EPS)]
+    choice_assignments = [(i,j,a,c) for (i,j,a,c) in x_choice.keys() if (x_choice[(i,j,a,c)].x > EPS)]
+
+    # grocery
+
+    assign_from_var_id_grocery = [i for (i, j, a) in assignments if a==0]
+    assign_to_var_id_grocery = [j for (i, j, a) in assignments if a==0]
+    assign_from_node_id_grocery = [df_from.iloc[group_values_from[i][0]]["node_ids"] for (i, j, a) in assignments if a==0]
+    assign_to_node_id_grocery = []
+    assign_type_grocery = []
+    dist_grocery =[]
+
+    # school
+
+    assign_from_var_id_school = [i for (i, j, a) in assignments if a == 0]
+    assign_to_var_id_school = [j for (i, j, a) in assignments if a == 0]
+    assign_from_node_id_school = [df_from.iloc[group_values_from[i][0]]["node_ids"] for (i, j, a) in assignments if a == 2]
+    assign_to_node_id_school = []
+    assign_type_school = []
+    dist_school = []
+
+    for (i, j, a) in assignments:
+        if a==0:
+            if j < num_allocation:
+                assign_to_node_id_grocery.append(df_to.iloc[group_values_to[j][0]]["node_ids"])
+                assign_type_grocery.append('allocated')
+                dist_grocery.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]])
+            else:
+                assign_to_node_id_grocery.append(grocery_df.iloc[j-num_allocation]["node_ids"])
+                assign_type_grocery.append('existing')
+                dist_grocery.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],grocery_df.iloc[j-num_allocation]["node_ids"]])
+        elif a==2:
+            if j < num_allocation:
+                assign_to_node_id_school.append(df_to.iloc[group_values_to[j][0]]["node_ids"])
+                assign_type_school.append('allocated')
+                dist_school.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]])
+            else:
+                assign_to_node_id_school.append(school_df.iloc[j-num_allocation-num_cur_restaurant-num_cur_grocery]["node_ids"])
+                assign_type_school.append('existing')
+                dist_school.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],school_df.iloc[j-num_allocation-num_cur_restaurant-num_cur_grocery]["node_ids"]])
+
+    assigned_D = {
+        "assign_from_var_id_grocery": assign_from_var_id_grocery,
+        "assign_to_var_id_grocery": assign_to_var_id_grocery,
+        "assign_from_node_id_grocery": assign_from_node_id_grocery,
+        "assign_to_node_id_grocery": assign_to_node_id_grocery,
+        "assign_type_grocery": assign_type_grocery,
+        "dist_grocery": dist_grocery,
+
+        "assign_from_var_id_school": assign_from_var_id_school,
+        "assign_to_var_id_school": assign_to_var_id_school,
+        "assign_from_node_id_school": assign_from_node_id_school,
+        "assign_to_node_id_school": assign_to_node_id_school,
+        "assign_type_school": assign_type_school,
+        "dist_school": dist_school
+    }
+
+    # restaurant
+
+    for choice in range(tot_choices):
+        assignments = [(i, j, a, c) for (i, j, a, c) in choice_assignments if (c == choice)]
+
+        assign_from_var_id = [i for (i, j, a, c) in assignments]
+        assign_to_var_id = [j for (i, j, a, c) in assignments]
+        assign_from_node_id = [df_from.iloc[group_values_from[i][0]]["node_ids"] for (i, j, a, c) in assignments]
+        assign_to_node_id = []
+        assign_type = []
+        dist=[]
+        for (i, j, a, c) in assignments:
+            if j < num_allocation:
+                assign_to_node_id.append(df_to.iloc[group_values_to[j][0]]["node_ids"])
+                assign_type.append('allocated')
+                dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]])
+            else:
+                assign_to_node_id.append(amenity_df.iloc[j-num_allocation]["node_ids"])
+                assign_type.append('existing')
+                dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],amenity_df.iloc[j-num_allocation-num_cur_grocery]["node_ids"]])
+
+        assigned_D[str(choice)+"_assign_from_var_id_restaurant"]=assign_from_var_id
+        assigned_D[str(choice)+"_assign_to_var_id_restaurant"]=assign_to_var_id
+        assigned_D[str(choice)+"_assign_from_node_id_restaurant"]=assign_from_node_id
+        assigned_D[str(choice)+"_assign_to_node_id_restaurant"]=assign_to_node_id
+        assigned_D[str(choice)+"_assign_type_restaurant"]=assign_type
+        assigned_D[str(choice)+"_dist_restaurant"]=dist
+
+
+    obj = m.getObjective()
+    obj_value = obj.getValue()
+
+    restaurant_dist_obj = [np.mean(assigned_D[str(c) + "_dist_restaurant"]) if (str(c) + "_dist_restaurant") in assigned_D.keys() else 0 for c in range(len(choice_weights))]
+
+    return obj_value, [np.mean(dist_grocery), restaurant_dist_obj, np.mean(dist_school)], m.Runtime, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], m.status
+
 
 def cur_assignment_single_depth(df_from,amenity_df, SP_matrix,bp, focus,EPS=1.e-6):
     ''' get assignment for the case with no allocation, considering depth of choice'''
@@ -592,7 +848,6 @@ def cur_assignment_single_depth(df_from,amenity_df, SP_matrix,bp, focus,EPS=1.e-
     obj_value = obj.getValue()
     dist_obj = [np.mean(assigned_D[str(c)+"_dist"]) if (str(c) + "_dist") in assigned_D.keys() else 0 for c in
                 range(len(choice_weights))]
-
 
     choices_dist = np.array(choices_dist)
     weighted_choices = np.dot(np.array(choice_weights),  choices_dist)
