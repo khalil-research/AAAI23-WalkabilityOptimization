@@ -246,7 +246,7 @@ if __name__ == "__main__":
             if args.k_array != '0,0,0':
                 k_name = args.k_array
                 allocated_f_name = os.path.join(sol_folder, "allocation_NIA_%s_%s.csv" % (nia_id, k_name))
-                pd.DataFrame.from_dict(allocated_D).to_csv(allocated_f_name)
+                #pd.DataFrame.from_dict(allocated_D).to_csv(allocated_f_name)
             else:
                 k_name = '0,0,0'
 
