@@ -758,9 +758,9 @@ def opt_multiple_depth(df_from,df_to,grocery_df, restaurant_df, school_df, SP_ma
                 assign_type.append('allocated')
                 dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]])
             else:
-                assign_to_node_id.append(amenity_df.iloc[j-num_allocation]["node_ids"])
+                assign_to_node_id.append(restaurant_df.iloc[j-num_allocation-num_cur_grocery]["node_ids"])
                 assign_type.append('existing')
-                dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],amenity_df.iloc[j-num_allocation-num_cur_grocery]["node_ids"]])
+                dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],restaurant_df.iloc[j-num_allocation-num_cur_grocery]["node_ids"]])
 
         assigned_D[str(choice)+"_assign_from_var_id_restaurant"]=assign_from_var_id
         assigned_D[str(choice)+"_assign_to_var_id_restaurant"]=assign_to_var_id
