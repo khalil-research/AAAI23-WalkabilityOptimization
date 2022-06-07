@@ -25,7 +25,6 @@ weights_array = np.array([3,restaurant_sum,1]) / (restaurant_sum+3+1) # grocery,
 weights_array_multi = np.array([3, .75, .45, .25, .25, .225, .225, .225, .225, .2, .2, 1]) / (restaurant_sum+3+1)
 w_choice_multi_amenity = choice_weights_raw / (restaurant_sum+3+1)
 time_limit=10*60*60 # 10h time limit
-#time_limit=3
 
 def opt_single(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,bp, focus,EPS=0.5):
     '''single amenity case, no depth of choice'''

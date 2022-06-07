@@ -16,7 +16,7 @@ amenity_bound_list = [1, 2, 2, 3, 1]
 w=[0.3,0.2,0.2,0.2,0.1]
 
 #time_limit=9*60*60
-time_limit=60*60
+time_limit=10*60*60
 #time_limit=10
 
 def MILP_comp(df_from,df_to,SP_matrix,solver_path, EPS=1.e-6):
@@ -34,7 +34,6 @@ def MILP_comp(df_from,df_to,SP_matrix,solver_path, EPS=1.e-6):
     groups_from = df_from.groupby('node_ids').groups
     #group_keys_from = list(groups_from.keys())  # [2,5,...]
     group_values_from = list(groups_from.values())
-
 
     # data
     num_residents = len(group_values_from)
