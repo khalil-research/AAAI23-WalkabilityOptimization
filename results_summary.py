@@ -25,26 +25,65 @@ def get_results_df(results_folder, model_name,amenity_name=None):
 
     return final_df
 
-def plot_time_vs_size(results_folder, plot_folder, models, display_names):
+def plot_time_vs_size_multiple(results_folder, plot_folder, models, display_names):
 
-    for model_name in models:
+    data_root = "/Users/weimin/Documents/MASC/walkability_data"
+    D_NIA = ct_nia_mapping(
+        os.path.join(data_root, "neighbourhood-improvement-areas-wgs84/processed_TSNS 2020 NIA Census Tracts.xlsx"))
+    plt.clf()
+
+
+    for i in range(len(models)):
+
+        model_name = models[i]
+        display_name = display_names[i]
+
+        results_df = get_results_df(results_folder, model_name)
+        results_df = results_df[(results_df["k_L_grocery"]>0) & (results_df["k_L_restaurant"]>0) & (results_df["k_L_school"]>0)]
+        for nia in list(D_NIA.keys()):
+            nia_df = results_df[results_df["nia_id"] == nia]
+            if len(nia_df) < 9:
+                    print("missing for",nia)
+        size = results_df.groupby("nia_id").mean()["num_res"] + results_df.groupby("nia_id").mean()["num_parking"]
+        avg_time = results_df.groupby("nia_id")["solving_time"].apply(shifted_geo_mean)
+        new_x, new_y = zip(*sorted(zip(size, avg_time)))
+
+        plt.plot(new_x, new_y, '--o', label=display_name)
+        plt.legend(prop={'size': 6})
+
+    plt.xlabel("|M|+|N|")
+    plt.ylabel("Shifted geo mean")
+    plt.savefig(os.path.join(plot_folder,  "shifted geo mean multiple.png"))
+    return
+
+def plot_time_vs_size_single(results_folder, plot_folder, models, display_names):
+    plt.clf()
+
+    for i in range(len(models)):
+
+        model_name = models[i]
+        display_name = display_names[i]
+
 
         if "Depth" in model_name:
             amenities = ["restaurant"]
         else:
             amenities = ["grocery","restaurant","school"]
+
         for amenity in amenities:
-            plt.clf()
+
             results_df = get_results_df(results_folder, model_name, amenity)
+            results_df=results_df[results_df["k"]>0]
             size = results_df.groupby("nia_id").mean()["num_res"] + results_df.groupby("nia_id").mean()["num_parking"]
             avg_time = results_df.groupby("nia_id")["solving_time"].apply(shifted_geo_mean)
             new_x, new_y = zip(*sorted(zip(size, avg_time)))
 
-            plt.plot(new_x, new_y, '--o', label=model_name+amenity)
+            plt.plot(new_x, new_y, '--o', label=display_name + "-"+ amenity)
             plt.legend(prop={'size': 6})
-            plt.xlabel("|M|+|N|")
-            plt.ylabel("avg solving time (s) ")
-            plt.savefig(os.path.join(plot_folder,  "time"+amenity + "_"+ model_name + ".png"))
+
+    plt.xlabel("|M|+|N|")
+    plt.ylabel("Shifted geo mean")
+    plt.savefig(os.path.join(plot_folder,  "shifted geo mean single.png"))
     return
 
 
@@ -94,7 +133,7 @@ def plot_obj_vs_k(results_df, plot_folder, amenity_name, model_name, display_nam
         if len(nia_df)<10:
             if len(nia_df[nia_df['k']==0])>0:
                 print("missing values?")
-                print(model_name,amenity,nia,len(nia_df))
+                print(model_name,amenity_name,nia,len(nia_df))
         nia_df = nia_df.sort_values(by=['k'])
         k_list = nia_df["k"]
         score_list = nia_df["obj"]
@@ -112,13 +151,15 @@ if __name__ == "__main__":
 
     results_folder = "saved_results"
     plot_folder = "results_plot"
-    # for model_name in ["OptSingle_False_0", "OptSingleDepth_False_0"]:
-    #     if model_name=="OptSingle_False_0":
-    #         amenity_L=["restaurant", "grocery", "school"]
-    #     elif model_name=="OptSingleDepth_False_0":
-    #         amenity_L = ["restaurant"]
-    #     for amenity in amenity_L:
-    #         results_df = get_results_df(results_folder, model_name, amenity)
-    #         plot_obj_vs_k(results_df, plot_folder,amenity,model_name, model_name.split("_")[0])
+    for model_name in ["OptSingle_False_0", "OptSingleDepth_False_0"]:
+        if model_name=="OptSingle_False_0":
+            amenity_L=["restaurant", "grocery", "school"]
+        elif model_name=="OptSingleDepth_False_0":
+            amenity_L = ["restaurant"]
+        for amenity in amenity_L:
+            results_df = get_results_df(results_folder, model_name, amenity)
+            plot_obj_vs_k(results_df, plot_folder,amenity,model_name, model_name.split("_")[0])
 
-    plot_time_vs_size(results_folder, plot_folder, ["OptSingle_False_0", "OptSingleDepth_False_0"],["OptSingle", "OptSingleDepth"])
+    #plot_time_vs_size_single(results_folder, plot_folder, ["OptSingle_False_0", "OptSingleDepth_False_0"],["Single", "Single-Depth"])
+    #plot_time_vs_size_multiple(results_folder, plot_folder, ["OptMultiple_False_0", "OptMultipleDepth_False_0"], ["Multiple", "Multiple-Depth"])
+    #plot_time_vs_size_multiple(results_folder, plot_folder, ["OptMultiple_False_0","OptMultipleDepth_False_0"], ["Multiple", "MultipleDepth"])

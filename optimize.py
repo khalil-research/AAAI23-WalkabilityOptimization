@@ -26,7 +26,7 @@ args = parser.parse_args()
 if args.cc:
     data_root = "/home/huangw98/projects/def-khalile2/huangw98/walkability_data"
     preprocessing_folder = "./preprocessing"
-    threads = 48
+    threads = 8
     solver_path = "/home/huangw98/modulefiles/mycplex/cpoptimizer/bin/x86-64_linux/cpoptimizer"
 else:
     data_root = "/Users/weimin/Documents/MASC/walkability_data"
@@ -176,13 +176,23 @@ if __name__ == "__main__":
                 multiple_dist = []
                 # grocery
                 score_obj, dist_grocery, solving_time, m, assigned_D, num_residents, num_cur_grocery, status = cur_assignment_single(residentials_df, grocery_df, D, args.bp, args.focus, EPS=0.5)
-                multiple_dist.append(assigned_D["dist"])
+                if assigned_D:
+                    multiple_dist.append(assigned_D["dist"])
+                else:
+                    multiple_dist.append([L_a[-2]] * num_residents)
+                # what if assigned_D is None
                 # restaurant
                 score_obj, dist_restaurant, solving_time, m, assigned_D, num_residents, num_cur_restaurant, status = cur_assignment_single(residentials_df, restaurant_df, D, args.bp, args.focus, EPS=0.5)
-                multiple_dist.append(assigned_D["dist"])
+                if assigned_D:
+                    multiple_dist.append(assigned_D["dist"])
+                else:
+                    multiple_dist.append([L_a[-2]] * num_residents)
                 # school
                 score_obj, dist_school, solving_time, m, assigned_D, num_residents, num_cur_school, status = cur_assignment_single(residentials_df, school_df, D, args.bp, args.focus, EPS=0.5)
-                multiple_dist.append(assigned_D["dist"])
+                if assigned_D:
+                    multiple_dist.append(assigned_D["dist"])
+                else:
+                    multiple_dist.append([L_a[-2]] * num_residents)
 
                 multiple_dist = np.array(multiple_dist)
                 weighted_dist = np.dot(np.array(weights_array), multiple_dist)
@@ -202,7 +212,10 @@ if __name__ == "__main__":
                 multiple_dist = []
                 # grocery
                 score_obj, dist_grocery, solving_time, m, assigned_D, num_residents, num_cur_grocery, status = cur_assignment_single(residentials_df, grocery_df, D, args.bp, args.focus, EPS=0.5)
-                multiple_dist.append(assigned_D["dist"])
+                if assigned_D:
+                    multiple_dist.append(assigned_D["dist"])
+                else:
+                    multiple_dist.append([L_a[-2]] * num_residents)
                 # restaurant
                 score_obj, dist_restaurant, solving_time, m, assigned_D, num_residents, num_cur_restaurant, status = cur_assignment_single_depth(residentials_df, restaurant_df, D, args.bp, args.focus, EPS=0.5)
 
@@ -214,7 +227,10 @@ if __name__ == "__main__":
 
                 # school
                 score_obj, dist_school, solving_time, m, assigned_D, num_residents, num_cur_school, status = cur_assignment_single(residentials_df, school_df, D, args.bp, args.focus, EPS=0.5)
-                multiple_dist.append(assigned_D["dist"])
+                if assigned_D:
+                    multiple_dist.append(assigned_D["dist"])
+                else:
+                    multiple_dist.append([L_a[-2]] * num_residents)
 
                 #TODO: finish this calculation: need to re-define weights
 

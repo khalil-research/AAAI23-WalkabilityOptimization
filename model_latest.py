@@ -24,7 +24,7 @@ L_f_a=[100,95,10,0,0]
 weights_array = np.array([3,restaurant_sum,1]) / (restaurant_sum+3+1) # grocery, restaurant, school (temp)
 weights_array_multi = np.array([3, .75, .45, .25, .25, .225, .225, .225, .225, .2, .2, 1]) / (restaurant_sum+3+1)
 w_choice_multi_amenity = choice_weights_raw / (restaurant_sum+3+1)
-time_limit=10*60*60 # 10h time limit
+time_limit=5*60*60 # 5h time limit
 
 def opt_single(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,bp, focus,EPS=0.5):
     '''single amenity case, no depth of choice'''
@@ -100,6 +100,7 @@ def opt_single(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,b
     m.setParam("LogFile", results_sava_path)
     m.Params.TimeLimit = time_limit
     m.Params.MIPFocus = focus
+    m.Params.NodefileStart = 0.5
 
     m.optimize()
 
@@ -257,6 +258,7 @@ def opt_single_depth(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_
     m.setParam("LogFile", results_sava_path)
     m.Params.TimeLimit = time_limit
     m.Params.MIPFocus = focus
+    m.Params.NodefileStart = 0.5
 
     m.optimize()
 
@@ -404,6 +406,7 @@ def opt_multiple(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, 
     m.setParam("LogFile", results_sava_path)
     m.Params.TimeLimit = time_limit
     m.Params.MIPFocus = focus
+    m.Params.NodefileStart = 0.5
 
     m.optimize()
 
@@ -631,6 +634,7 @@ def opt_multiple_depth(df_from,df_to,grocery_df, restaurant_df, school_df, SP_ma
     m.setParam("LogFile", results_sava_path)
     m.Params.TimeLimit = time_limit
     m.Params.MIPFocus = focus
+    m.Params.NodefileStart = 0.5
 
     m.optimize()
 
