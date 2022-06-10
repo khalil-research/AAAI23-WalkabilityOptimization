@@ -784,9 +784,6 @@ def opt_multiple_depth(df_from,df_to,grocery_df, restaurant_df, school_df, SP_ma
 
 def cur_assignment_single_depth(df_from,amenity_df, SP_matrix,bp, focus,EPS=1.e-6):
     ''' get assignment for the case with no allocation, considering depth of choice'''
-    if len(amenity_df) == 0:
-        print("no existing amenities!")
-        return 0, None, None, None, None, None, 0, None
 
     m = gp.Model('cur_assignment')
     groups_from = df_from.groupby('node_ids').groups
@@ -862,9 +859,6 @@ def cur_assignment_single_depth(df_from,amenity_df, SP_matrix,bp, focus,EPS=1.e-
 
 def cur_assignment_single(df_from,amenity_df, SP_matrix,bp, focus,EPS=1.e-6):
     ''' get assignment for the case with no allocation, no depth of choice'''
-    if len(amenity_df) == 0:
-        print("no existing amenities!")
-        return 0, None, None, None, None, None, 0, None
 
     m = gp.Model('cur_assignment')
     groups_from = df_from.groupby('node_ids').groups
@@ -873,6 +867,11 @@ def cur_assignment_single(df_from,amenity_df, SP_matrix,bp, focus,EPS=1.e-6):
     num_amenity = len(amenity_df)
     cartesian_prod = list(product(range(num_residents), range(num_amenity), ))  # a list of tuples
     distances = {(i, j): SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], amenity_df.iloc[j]["node_ids"]] for i, j in cartesian_prod}
+
+    if len(amenity_df) == 0:
+        print("no existing amenities!")
+        return 0, None, None, None, None, num_residents, 0, None   # score_obj, obj_value, m.Runtime, m, assigned_D, num_residents, num_amenity, m.status
+
 
     assign = m.addVars(cartesian_prod, vtype=GRB.BINARY, name='Assign')
 

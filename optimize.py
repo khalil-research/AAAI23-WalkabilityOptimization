@@ -10,6 +10,7 @@ import argparse
 import os
 from pathlib import Path
 import numpy as np
+import pickle
 
 parser = argparse.ArgumentParser(description='Enter model name:grb_PWL,scratch')
 parser.add_argument("model", help="model", type=str)
@@ -261,8 +262,11 @@ if __name__ == "__main__":
         elif args.model in ['OptMultiple','OptMultipleDepth']:
             if args.k_array != '0,0,0':
                 k_name = args.k_array
-                allocated_f_name = os.path.join(sol_folder, "allocation_NIA_%s_%s.csv" % (nia_id, k_name))
+                #allocated_f_name = os.path.join(sol_folder, "allocation_NIA_%s_%s.csv" % (nia_id, k_name))
+                allocated_f_name = os.path.join(sol_folder, "allocation_NIA_%s_%s.pkl" % (nia_id, k_name))
                 #pd.DataFrame.from_dict(allocated_D).to_csv(allocated_f_name)
+                with open(allocated_f_name, 'wb') as f:
+                    pickle.dump(allocated_D, f)
             else:
                 k_name = '0,0,0'
 
