@@ -4,6 +4,7 @@ from itertools import product
 import os
 import pandas as pd
 import numpy as np
+from docplex.cp.model import *
 import copy
 from map_utils import map_back_allocate, map_back_assign
 import matplotlib.pyplot as plt
@@ -920,7 +921,7 @@ def dist_to_score(d,L_a,L_f_a):
     return scores
 
 
-def opt_single_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,bp, focus,EPS=0.5):
+def opt_single_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,solver_path, EPS=0.5):
     '''single amenity case, no depth of choice'''
 
     if len(df_from)>0:
@@ -928,7 +929,7 @@ def opt_single_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_pat
     if len(df_to)>0:
         df_to = df_to[['geometry', 'node_ids']]
 
-    m = gp.Model('max_walk_score')
+    model = CpoModel(name="max_score")
 
     # grouping
     groups_to=df_to.groupby('node_ids').groups # keys are node id, values are indices
@@ -942,94 +943,108 @@ def opt_single_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_pat
 
     num_cur = len(amenity_df)
 
-    cartesian_prod_assign = list(product(range(num_residents), range(num_allocation + num_cur)))  # a list of tuples
     cartesian_prod_allocate = list(product(range(num_residents), range(num_allocation)))
 
     # retrieve distances
     d = {(i, j): SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]] for i, j in cartesian_prod_allocate}
 
     for i in range(num_residents):
+        # dummy node: inf distance
+        d[(i, num_allocation)] = L_a[-1]
+        # distance to existing ones
         for l in range(num_cur):
-            cur_id = num_allocation+l
+            cur_id = num_allocation + 1 + l
             d[(i, cur_id)] = SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], amenity_df.iloc[l]["node_ids"]]
 
-    # Variables
-    x = m.addVars(cartesian_prod_assign, vtype=GRB.BINARY, name='assign')
-    y = m.addVars(num_allocation, vtype=GRB.BINARY, name='activate')
-    a = m.addVars(num_residents, vtype=GRB.CONTINUOUS, name='dist')
-    f = m.addVars(num_residents, vtype=GRB.CONTINUOUS, ub=100,name='score')
-
-    if bp:
-        print("branch priority set")
-        m.update()
-        # branching priority
-        # if BranchPriority:
-        for j in range(num_allocation):
-            y[j].setAttr("BranchPriority", 100)
-        m.update()
-        # for (n,m) in cartesian_prod_assign:
-        #     x[(n,m)].setAttr("BranchPriority",0)
+    # variables
+    y = {}
+    for k_ in range(k):
+        y[k_] = model.integer_var(min=0, max=num_allocation+1,name=f'y[{k_}]') #include dummy node
+    f = {}
+    for i in range(num_residents):
+        f[i] = model.float_var(min=0, max=100, name=f'f[{i}]')
+    dist = {}
+    for i in range(num_residents):
+        for k_ in range(k):
+            dist[(i, k_)] = model.float_var(min=0, max=L_a[-1], name=f'dist[{i},{k_}]')
+    l = {}
+    for i in range(num_residents):
+        l[i] = model.float_var(min=0, max=L_a[-1], name=f'z[{i}]')
 
     # Constraints
     ## WalkScore
-    m.addConstrs((a[n] ==
-                 (gp.quicksum(d[(n, m)] * x[(n, m)] for m in range(num_allocation + num_cur)))) for n in
-                 range(num_residents))
-    for n in range(num_residents):
-        m.addGenConstrPWL(a[n], f[n], L_a, L_f_a)
-    ## assgined nodes satisfy demand
-    m.addConstrs(
-        (gp.quicksum(x[(n, m)] for m in range(num_allocation + num_cur)) == 1 for n in range(num_residents)),
-        name='Demand')
-    ## resource constraint
-    m.addConstr(gp.quicksum(y[m] for m in range(num_allocation)) <= k, name='resource')
-    ## activation
-    m.addConstrs((x[(n, m)] <= y[m] for n, m in cartesian_prod_allocate), name='setup')
+    # allocated
+    for i in range(num_residents):
+        for k_ in range(k):
+            model.add(dist[(i,k_)] == (model.element([d[(i, m)] for m in range(num_allocation+1)], y[k_])))
+    # existing
+    for i in range(num_residents):
+        model.add(l[i] == model.min([dist[(i,k_)] for k_ in range(k)] + [d[(i,j)] for j in range(num_allocation + 1, num_allocation + 1 + num_cur)]) )
 
-    m.addConstrs(y[j] <= capacity[j] for j in range(num_allocation))
+    # PWL
+    for i in range(num_residents):
+        model.add(f[i] == model.slope_piecewise_linear(l[i], [400, 1800, 2400], [-0.0125, -0.0607, -0.0167, 0], 0, 100))
 
-    # objective
-    m.Params.Threads = threads
-    m.setObjective(gp.quicksum(f[n] for n in range(num_residents))/num_residents, GRB.MAXIMIZE)
-    m.setParam("LogFile", results_sava_path)
-    m.Params.TimeLimit = time_limit
-    m.Params.MIPFocus = focus
-    m.Params.NodefileStart = 0.5
+    for j in range(num_allocation):
+        model.add(model.count(list(y.values()),j)<=capacity[j])
 
-    m.optimize()
+    # symmetry breaking
+    if k>1:
+        for k_ in range(k-1):
+            model.add(y[(k_)]<=y[(k_+1)])
 
-    assignments = [(i, j) for (i, j) in x.keys() if (x[i, j].x > EPS)]
-    allocations = [j for j in y.keys() if (y[j].x > EPS)]
+    # # objective
+    model.add(model.maximize(model.sum(f[i] for i in range(num_residents))/num_residents))
+
+    msol = model.solve(execfile=solver_path, TimeLimit=time_limit, Workers=threads)
+    obj_value = msol.get_objective_values()[0]
+
+    str = msol.solver_log
+    with open(results_sava_path, 'w') as f:
+        f.write(str)
+
+    allocations = [msol[y[k_]] for k_ in y.keys() if msol[y[k_]] < num_allocation]  # exclude dummy node
+
 
     # save allocation solutions
     allocate_var_id = allocations
     allocate_row_id = []
     allocate_node_id = []
     for j in allocate_var_id:
-        for l in range(round(y[j].x)):
-            allocate_row_id.append(group_values_to[j][l])
-            allocate_node_id.append(df_to.iloc[group_values_to[j][l]]["node_ids"])
+        allocate_row_id.append(group_values_to[j][0])
+        allocate_node_id.append(df_to.iloc[group_values_to[j][0]]["node_ids"])
     allocated_D = {
         "allocate_var_id": allocate_var_id,
         "allocate_node_id": allocate_node_id,
         "allocate_row_id": allocate_row_id
     }
-
-    assign_from_var_id = [i for (i, j) in assignments]
-    assign_to_var_id = [j for (i, j) in assignments]
-    assign_from_node_id = [df_from.iloc[group_values_from[i][0]]["node_ids"] for (i, j) in assignments]
+    assign_from_var_id = list(range(num_residents))
+    assign_from_node_id = [df_from.iloc[group_values_from[i][0]]["node_ids"] for i in assign_from_var_id]
+    assign_to_var_id = []
     assign_to_node_id = []
     assign_type = []
-    dist=[]
-    for (i,j) in assignments:
-        if j < num_allocation:
-            assign_to_node_id.append(df_to.iloc[group_values_to[j][0]]["node_ids"])
+    dist = []
+    for i in range(num_residents):
+
+        # new_allocated
+        j_array = [msol[y[k_]] for k_ in range(k)]
+        dist_array_new = [d[i, msol[y[k_]]] for k_ in range(k)]
+        j_new = j_array[np.argmin(dist_array_new)]
+        # existing
+        j_array = [j-1 for j in range(num_allocation, num_allocation + 1 + num_cur)]
+        dist_array_e = [d[(i,j)] for j in range(num_allocation, num_allocation + 1 + num_cur)]
+        j_exist = j_array[np.argmin(dist_array_e)]
+        if min(dist_array_new)<min(dist_array_e):
+            assign_to_var_id.append(j_new)
+            assign_to_node_id.append(df_to.iloc[group_values_to[j_new][0]]["node_ids"])
             assign_type.append('allocated')
-            dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]])
+            dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j_new][0]]["node_ids"]])
         else:
-            assign_to_node_id.append(amenity_df.iloc[j-num_allocation]["node_ids"])
+            assign_to_var_id.append(j_exist)
+            assign_to_node_id.append(amenity_df.iloc[j_exist-num_allocation]["node_ids"])
             assign_type.append('existing')
-            dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],amenity_df.iloc[j-num_allocation]["node_ids"]])
+            dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],amenity_df.iloc[j_exist-num_allocation]["node_ids"]])
+
 
     assigned_D = {
         "assign_from_var_id": assign_from_var_id,
@@ -1039,8 +1054,6 @@ def opt_single_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_pat
         "assign_type": assign_type,
         "dist": dist}
 
-    obj = m.getObjective()
-    obj_value = obj.getValue()
     dist_obj = np.mean(dist)
 
-    return obj_value, dist_obj, m.Runtime, m, allocated_D, assigned_D, num_residents, num_allocation, num_cur, m.status
+    return obj_value, dist_obj, msol.get_solve_time(), msol, allocated_D, assigned_D, num_residents, num_allocation, num_cur, msol.solve_status

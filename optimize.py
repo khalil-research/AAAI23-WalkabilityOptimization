@@ -3,7 +3,7 @@ from map_utils import *
 import model_latest
 #from CP_models import *
 #from MIP_models import *
-from model_latest import opt_single, cur_assignment_single, opt_multiple, opt_single_depth, cur_assignment_single_depth, weights_array, dist_to_score, L_a, L_f_a, opt_multiple_depth, weights_array_multi, choice_weights
+from model_latest import opt_single, cur_assignment_single, opt_multiple, opt_single_depth, cur_assignment_single_depth, weights_array, dist_to_score, L_a, L_f_a, opt_multiple_depth, weights_array_multi, choice_weights, opt_single_CP
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import argparse
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     num_allocations_L = []
     status_L = []
 
-    if args.model in ['OptSingle', 'OptSingleDepth']:
+    if args.model in ['OptSingle', 'OptSingleDepth','OptSingleCP']:
         num_existing_L = []
         dist_obj_L = []
         k_L = []
@@ -145,13 +145,18 @@ if __name__ == "__main__":
         #     obj_value, solving_time, allocated_nodes, allocated_df, assigned_nodes, m, log, num_residents, num_allocation = MILP_comp(
         #         residentials_df, parking_df,
         #         D, solver_path)
-        if args.model == 'OptSingle':
+        if args.model in ['OptSingle','OptSingleCP']:
             amenity_type = args.amenity
             amenity_df = all_dfs[all_strs.index(args.amenity)]
             if args.k:
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, args.k, args.amenity))
-                score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single(
-                    residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, args.bp, args.focus, EPS = 0.5)
+                if not 'CP' in args.model:
+                    score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single(
+                        residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, args.bp, args.focus, EPS = 0.5)
+                else:
+                    score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single_CP(
+                        residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, solver_path, EPS=0.5)
+
             else:
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
                 score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing, status = cur_assignment_single(residentials_df,amenity_df, D,args.bp, args.focus,EPS=0.5)
@@ -248,7 +253,7 @@ if __name__ == "__main__":
             print("choose model name")
 
         # save allocated results for mapping
-        if args.model in ['OptSingle','OptSingleDepth']:
+        if args.model in ['OptSingle','OptSingleDepth','OptSingleCP']:
 
             if args.k:
                 k_name = args.k
@@ -274,7 +279,8 @@ if __name__ == "__main__":
             model_f_name = os.path.join(sol_folder, "NIA_%s_%s.sol" % (nia_id, k_name))
 
         pd.DataFrame.from_dict(assigned_D).to_csv(assigned_f_name)
-        m.write(model_f_name)
+        if m:
+            m.write(model_f_name)
 
         # write log
         # text_file = open(os.path.join(log_folder, args.model + '_' + str(nia_id) + '.txt'), "w")
@@ -285,7 +291,7 @@ if __name__ == "__main__":
         nia_id_L.append(nia_id)
         nia_name_L.append(D_NIA[nia_id]['name'])
 
-        if args.model in ['OptSingle', 'OptSingleDepth']:
+        if args.model in ['OptSingle', 'OptSingleDepth','OptSingleCP']:
             dist_obj_L.append(dist_obj)
             num_existing_L.append(num_existing)
             if args.k:
@@ -354,7 +360,7 @@ if __name__ == "__main__":
 
         # save results summary
 
-        if args.model in ['OptSingle', 'OptSingleDepth']:
+        if args.model in ['OptSingle', 'OptSingleDepth','OptSingleCP']:
             results_D = {
                 "nia_id": nia_id_L,
                 "nia_name": nia_name_L,
