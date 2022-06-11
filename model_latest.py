@@ -173,7 +173,10 @@ def opt_single_depth(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_
 
     num_cur = len(amenity_df)
 
-    cartesian_prod_assign = list(product(range(num_residents), range(num_allocation + num_cur), range(len(choice_weights))))  # last index is for depth of choice
+    tot_choices = min(k + num_cur, len(choice_weights))
+    no_choices = list(range(tot_choices, len(choice_weights)))
+
+    cartesian_prod_assign = list(product(range(num_residents), range(num_allocation + num_cur), range(tot_choices)))  # last index is for depth of choice
     cartesian_prod_allocate = list(product(range(num_residents), range(num_allocation)))
 
     # retrieve distances
@@ -202,9 +205,6 @@ def opt_single_depth(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_
         # for (n,m) in cartesian_prod_assign:
         #     x[(n,m)].setAttr("BranchPriority",0)
 
-    tot_choices = min(k + num_cur, len(choice_weights))
-    no_choices = list(range(tot_choices, len(choice_weights)))
-
     # Constraints
     ## WalkScore
     no_choice_sum =sum([choice_weights[c]*L_a[-2] for c in no_choices])
@@ -220,13 +220,11 @@ def opt_single_depth(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_
     m.addConstrs((
         (gp.quicksum(x[(n, m, c)] for m in range(num_allocation + num_cur)) == 1) for c in range(tot_choices) for n in range(num_residents)),
         name='choices')
-    m.addConstrs(
-        ((x[(n, m, c)] == 0) for c in no_choices for m in range(num_allocation + num_cur) for n in range(num_residents)),
-        name='choices')
+
     ## resource constraint
     m.addConstr(gp.quicksum(y[m] for m in range(num_allocation)) <= k, name='resource')
     ## activation
-    m.addConstrs((x[(n, m, c)] <= y[m] for (n, m, c) in list(product(range(num_residents), range(num_allocation), range(len(choice_weights))))), name='setup')
+    m.addConstrs((x[(n, m, c)] <= y[m] for (n, m, c) in list(product(range(num_residents), range(num_allocation), range(tot_choices)))), name='setup')
     ## node capacity
     m.addConstrs(y[j] <= capacity[j] for j in range(num_allocation))
     # choices can not be the same place
@@ -261,7 +259,6 @@ def opt_single_depth(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_
     m.Params.NodefileStart = 0.5
 
     m.optimize()
-
 
     allocations = [j for j in y.keys() if (y[j].x > EPS)]
 
@@ -562,11 +559,14 @@ def opt_multiple_depth(df_from,df_to,grocery_df, restaurant_df, school_df, SP_ma
     range_school_existing = list(range(cur_index, cur_index + num_cur_school))
     range_school_dest_list = list(range(num_allocation)) + range_school_existing
 
+    tot_choices = min(k_array[1] + num_cur_restaurant, len(w_choice_multi_amenity))
+    no_choices = list(range(tot_choices, len(w_choice_multi_amenity)))
+
     cartesian_prod_assign_grocery = list(product(range(num_residents), range_grocery_dest_list, [0]))
-    cartesian_prod_assign_restaurant = list(product(range(num_residents),range_restaurant_dest_list, [1], range(len(w_choice_multi_amenity))))
+    cartesian_prod_assign_restaurant = list(product(range(num_residents),range_restaurant_dest_list, [1], range(tot_choices)))
     cartesian_prod_assign_school = list(product(range(num_residents), range_school_dest_list, [2]))
 
-    cartesian_prod_allocate = list(product(range(num_residents), list(range(num_allocation)), [0,1,2]))
+    #cartesian_prod_allocate = list(product(range(num_residents), list(range(num_allocation)), [0,1,2]))
 
     # retrieve distances
     d = {(i, j): SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]] for i, j in list(product(range(num_residents), range(num_allocation)))}
@@ -592,8 +592,6 @@ def opt_multiple_depth(df_from,df_to,grocery_df, restaurant_df, school_df, SP_ma
         # for (n,m) in cartesian_prod_assign:
         #     x[(n,m)].setAttr("BranchPriority",4)
 
-    tot_choices = min(k_array[1] + num_cur_restaurant, len(w_choice_multi_amenity))
-    no_choices = list(range(tot_choices, len(w_choice_multi_amenity)))
 
     # Constraints
     ## weighted distance
@@ -613,12 +611,11 @@ def opt_multiple_depth(df_from,df_to,grocery_df, restaurant_df, school_df, SP_ma
     m.addConstrs((gp.quicksum(x[(i, j, 2)] for j in range_school_dest_list) == 1 for i in range(num_residents)), name='school demand')
     ## assign choices
     m.addConstrs(((gp.quicksum(x_choice[(i, j, 1, c)] for j in range_restaurant_dest_list) == 1) for c in range(tot_choices) for i in range(num_residents)), name='choices')
-    m.addConstrs(((x_choice[(i, j, 1, c)] == 0) for c in no_choices for j in range_restaurant_dest_list for i in range(num_residents)), name='no choices')
     ## resource constraint
     m.addConstrs(((gp.quicksum(y[(j,a)] for a in range(len(weights_array))) <= capacity[j]) for j in range(num_allocation)), name='capacity')
     # activation
     m.addConstrs((x[(i,j,a)] <= y[(j,a)] for (i, j ,a) in list(product(range(num_residents), list(range(num_allocation)), [0,2]))), name='activation1')
-    m.addConstrs((x_choice[(i, j, a, c)] <= y[(j, a)] for (i, j, a, c) in list(product(range(num_residents), list(range(num_allocation)),[1], range(len(w_choice_multi_amenity))))), name='activation1')
+    m.addConstrs((x_choice[(i, j, a, c)] <= y[(j, a)] for (i, j, a, c) in list(product(range(num_residents), list(range(num_allocation)),[1], range(tot_choices)))), name='activation2')
     # resource constraint
     m.addConstrs(((gp.quicksum(y[(j, a)] for j in range(num_allocation)) <= k_array[a]) for a in range(len(k_array))), name='resource')
 
@@ -921,3 +918,129 @@ def dist_to_score(d,L_a,L_f_a):
     scores = np.piecewise(d, [d<a[1], (a[1]<=d) & (d<a[2]), (a[2]<=d) & (d<a[3]), d>=a[3]],
                  [lambda d: L_m[0]*d+L_c[0], lambda d: L_m[1]*d+L_c[1], lambda d: L_m[2]*d+L_c[2], lambda d:0])
     return scores
+
+
+def opt_single_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,bp, focus,EPS=0.5):
+    '''single amenity case, no depth of choice'''
+
+    if len(df_from)>0:
+        df_from = df_from[['geometry', 'node_ids']]
+    if len(df_to)>0:
+        df_to = df_to[['geometry', 'node_ids']]
+
+    m = gp.Model('max_walk_score')
+
+    # grouping
+    groups_to=df_to.groupby('node_ids').groups # keys are node id, values are indices
+    group_values_to=list(groups_to.values())
+    num_allocation = len(group_values_to)
+    capacity = [len(item) for item in group_values_to]
+
+    groups_from = df_from.groupby('node_ids').groups
+    group_values_from = list(groups_from.values())
+    num_residents = len(group_values_from)
+
+    num_cur = len(amenity_df)
+
+    cartesian_prod_assign = list(product(range(num_residents), range(num_allocation + num_cur)))  # a list of tuples
+    cartesian_prod_allocate = list(product(range(num_residents), range(num_allocation)))
+
+    # retrieve distances
+    d = {(i, j): SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]] for i, j in cartesian_prod_allocate}
+
+    for i in range(num_residents):
+        for l in range(num_cur):
+            cur_id = num_allocation+l
+            d[(i, cur_id)] = SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], amenity_df.iloc[l]["node_ids"]]
+
+    # Variables
+    x = m.addVars(cartesian_prod_assign, vtype=GRB.BINARY, name='assign')
+    y = m.addVars(num_allocation, vtype=GRB.BINARY, name='activate')
+    a = m.addVars(num_residents, vtype=GRB.CONTINUOUS, name='dist')
+    f = m.addVars(num_residents, vtype=GRB.CONTINUOUS, ub=100,name='score')
+
+    if bp:
+        print("branch priority set")
+        m.update()
+        # branching priority
+        # if BranchPriority:
+        for j in range(num_allocation):
+            y[j].setAttr("BranchPriority", 100)
+        m.update()
+        # for (n,m) in cartesian_prod_assign:
+        #     x[(n,m)].setAttr("BranchPriority",0)
+
+    # Constraints
+    ## WalkScore
+    m.addConstrs((a[n] ==
+                 (gp.quicksum(d[(n, m)] * x[(n, m)] for m in range(num_allocation + num_cur)))) for n in
+                 range(num_residents))
+    for n in range(num_residents):
+        m.addGenConstrPWL(a[n], f[n], L_a, L_f_a)
+    ## assgined nodes satisfy demand
+    m.addConstrs(
+        (gp.quicksum(x[(n, m)] for m in range(num_allocation + num_cur)) == 1 for n in range(num_residents)),
+        name='Demand')
+    ## resource constraint
+    m.addConstr(gp.quicksum(y[m] for m in range(num_allocation)) <= k, name='resource')
+    ## activation
+    m.addConstrs((x[(n, m)] <= y[m] for n, m in cartesian_prod_allocate), name='setup')
+
+    m.addConstrs(y[j] <= capacity[j] for j in range(num_allocation))
+
+    # objective
+    m.Params.Threads = threads
+    m.setObjective(gp.quicksum(f[n] for n in range(num_residents))/num_residents, GRB.MAXIMIZE)
+    m.setParam("LogFile", results_sava_path)
+    m.Params.TimeLimit = time_limit
+    m.Params.MIPFocus = focus
+    m.Params.NodefileStart = 0.5
+
+    m.optimize()
+
+    assignments = [(i, j) for (i, j) in x.keys() if (x[i, j].x > EPS)]
+    allocations = [j for j in y.keys() if (y[j].x > EPS)]
+
+    # save allocation solutions
+    allocate_var_id = allocations
+    allocate_row_id = []
+    allocate_node_id = []
+    for j in allocate_var_id:
+        for l in range(round(y[j].x)):
+            allocate_row_id.append(group_values_to[j][l])
+            allocate_node_id.append(df_to.iloc[group_values_to[j][l]]["node_ids"])
+    allocated_D = {
+        "allocate_var_id": allocate_var_id,
+        "allocate_node_id": allocate_node_id,
+        "allocate_row_id": allocate_row_id
+    }
+
+    assign_from_var_id = [i for (i, j) in assignments]
+    assign_to_var_id = [j for (i, j) in assignments]
+    assign_from_node_id = [df_from.iloc[group_values_from[i][0]]["node_ids"] for (i, j) in assignments]
+    assign_to_node_id = []
+    assign_type = []
+    dist=[]
+    for (i,j) in assignments:
+        if j < num_allocation:
+            assign_to_node_id.append(df_to.iloc[group_values_to[j][0]]["node_ids"])
+            assign_type.append('allocated')
+            dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]])
+        else:
+            assign_to_node_id.append(amenity_df.iloc[j-num_allocation]["node_ids"])
+            assign_type.append('existing')
+            dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],amenity_df.iloc[j-num_allocation]["node_ids"]])
+
+    assigned_D = {
+        "assign_from_var_id": assign_from_var_id,
+        "assign_to_var_id": assign_to_var_id,
+        "assign_from_node_id": assign_from_node_id,
+        "assign_to_node_id": assign_to_node_id,
+        "assign_type": assign_type,
+        "dist": dist}
+
+    obj = m.getObjective()
+    obj_value = obj.getValue()
+    dist_obj = np.mean(dist)
+
+    return obj_value, dist_obj, m.Runtime, m, allocated_D, assigned_D, num_residents, num_allocation, num_cur, m.status
