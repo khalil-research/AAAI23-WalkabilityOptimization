@@ -992,12 +992,13 @@ def opt_single_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_pat
     if k>1:
         for k_ in range(k-1):
             model.add(y[(k_)]<=y[(k_+1)])
+    model.add(model.all_diff([y[k_] for k_ in range(k)]))
 
     # # objective
     model.add(model.maximize(model.sum(f[i] for i in range(num_residents))/num_residents))
 
     msol = model.solve(execfile=solver_path, TimeLimit=time_limit, Workers=threads)
-    obj_value = msol.get_objective_values()[0]
+    obj_value = msol.get_objective_values()[0][0]
 
     str = msol.solver_log
     with open(results_sava_path, 'w') as f:
@@ -1057,3 +1058,195 @@ def opt_single_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_pat
     dist_obj = np.mean(dist)
 
     return obj_value, dist_obj, msol.get_solve_time(), msol, allocated_D, assigned_D, num_residents, num_allocation, num_cur, msol.solve_status
+
+def opt_multiple_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, k_array, threads,results_sava_path,solver_path,EPS=0.5):
+    '''multiple amenity case, no depth of choice'''
+
+    if len(df_from)>0:
+        df_from = df_from[['geometry', 'node_ids']]
+    if len(df_to)>0:
+        df_to = df_to[['geometry', 'node_ids']]
+
+    model = CpoModel(name="max_score")
+
+    # grouping
+    groups_to=df_to.groupby('node_ids').groups # keys are node id, values are indices
+    group_values_to=list(groups_to.values())
+    num_allocation = len(group_values_to)
+    capacity = [len(item) for item in group_values_to]
+
+    groups_from = df_from.groupby('node_ids').groups
+    group_values_from = list(groups_from.values())
+    num_residents = len(group_values_from)
+
+    num_cur_grocery = len(grocery_df)
+    num_cur_restaurant = len(restaurant_df)
+    num_cur_school = len(school_df)
+
+    cur_index = num_allocation
+    range_grocery_dest_list = list(range(cur_index, cur_index + num_cur_grocery))
+    range_grocery_dest_list = [item + 1 for item in range_grocery_dest_list]
+    cur_index+=num_cur_grocery
+    range_restaurant_dest_list = list(range(cur_index, cur_index + num_cur_restaurant))
+    range_restaurant_dest_list = [item + 1 for item in range_restaurant_dest_list]
+    cur_index+=num_cur_restaurant
+    range_school_dest_list = list(range(cur_index, cur_index + num_cur_school))
+    range_school_dest_list = [item + 1 for item in range_school_dest_list]
+    existing_list = [range_grocery_dest_list, range_restaurant_dest_list, range_school_dest_list]
+
+    # retrieve distances
+    d = {(i, j): SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]] for i, j in list(product(range(num_residents), range(num_allocation)))}
+
+    for i in range(num_residents):
+        # dummy node: inf distance
+        d[(i, num_allocation)] = L_a[-1]
+        start_id = num_allocation + 1
+        for amenity_df in [grocery_df, restaurant_df, school_df]:
+            for inst_row in range(len(amenity_df)):
+                cur_id = start_id + inst_row
+                d[(i, cur_id)] = SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], amenity_df.iloc[inst_row]["node_ids"]]
+            start_id += len(amenity_df)
+
+    # variables
+    y = {}
+    for a in range(len(k_array)):
+        for k_ in range(k_array[a]):
+            y[(k_, a)] = model.integer_var(min=0, max=num_allocation, name=f'y[{k_},{a}]')  # include dummy node
+    dist = {}  # z
+    for i in range(num_residents):
+        for a in range(len(k_array)):
+            for k_ in range(k_array[a]):
+                dist[(i, a, k_)] = model.float_var(min=0, max=L_a[-1], name=f'dist[{i},{a},{k_}]')
+    f = {}
+    for i in range(num_residents):
+        f[i] = model.float_var(min=0, max=100, name=f'f[{i}]')
+    l = {}
+    for i in range(num_residents):
+        l[i] = model.float_var(min=0, max=L_a[-1], name=f'z[{i}]')
+
+    # Constraints
+    ## weighted distance
+    for i in range(num_residents):
+        model.add(l[i] == (model.sum((weights_array[a] * model.min([dist[(i,a,k_)] for k_ in range(k_array[a])] + [d[(i,j)] for j in existing_list[a]])) for a in range(len(k_array)))))
+    # PWL
+    for i in range(num_residents):
+        model.add(f[i]==model.slope_piecewise_linear(l[i], [400, 1800, 2400], [-0.0125, -0.0607, -0.0167, 0], 0, 100))
+
+    # distance element constrain
+    for i in range(num_residents):
+        for a in range(len(k_array)):
+            for k_ in range(k_array[a]):
+                model.add(
+                    dist[(i, a, k_)] == (model.element([d[(i, m)] for m in range(num_allocation + 1)], y[(k_, a)])))
+
+    for j in range(num_allocation):
+        model.add(model.count(list(y.values()), j) <= capacity[j])
+
+    # symmetry breaking
+    for a in range(len(k_array)):
+        if k_array[a]>1:
+            for k_ in range((k_array[a])-1):
+                model.add(y[(k_,a)]<=y[(k_+1,a)])
+        model.add(model.all_diff([y[(k_, a)] for k_ in range(k_array[a])]))
+
+    # # objective
+    model.add(model.maximize(model.sum(f[i] for i in range(num_residents))/num_residents))
+
+    msol = model.solve(execfile=solver_path, TimeLimit=time_limit, Workers=threads)
+    obj_value = msol.get_objective_values()[0][0]
+
+    str = msol.solver_log
+    with open(results_sava_path, 'w') as f:
+        f.write(str)
+
+    allocations = [(msol[y[k_,a]], a) for (k_, a) in y.keys() if msol[y[k_,a]] < num_allocation]
+
+    # save allocation solutions
+    allocate_var_id_grocery = [(j, a) for (j, a) in allocations if a==0]
+    allocate_row_id_grocery = []
+    allocate_node_id_grocery = []
+    for (j, a) in allocate_var_id_grocery:
+        allocate_row_id_grocery.append(group_values_to[j][0])
+        allocate_node_id_grocery.append(df_to.iloc[group_values_to[j][0]]["node_ids"])
+
+    allocate_var_id_restaurant = [(j, a) for (j, a) in allocations if a==1]
+    allocate_row_id_restaurant = []
+    allocate_node_id_restaurant = []
+    for (j, a) in allocate_var_id_restaurant:
+        allocate_row_id_restaurant.append(group_values_to[j][0])
+        allocate_node_id_restaurant.append(df_to.iloc[group_values_to[j][0]]["node_ids"])
+
+    allocate_var_id_school = [(j, a) for (j, a) in allocations if a==2]
+    allocate_row_id_school = []
+    allocate_node_id_school = []
+    for (j, a) in allocate_var_id_school:
+        allocate_row_id_school.append(group_values_to[j][0])
+        allocate_node_id_school.append(df_to.iloc[group_values_to[j][0]]["node_ids"])
+
+    allocated_D = {
+        "allocate_var_id_grocery": allocate_var_id_grocery,
+        "allocate_node_id_grocery": allocate_node_id_grocery,
+        "allocate_row_id_grocery": allocate_row_id_grocery,
+        "allocate_var_id_restaurant": allocate_var_id_restaurant,
+        "allocate_node_id_restaurant": allocate_node_id_restaurant,
+        "allocate_row_id_restaurant": allocate_row_id_restaurant,
+        "allocate_var_id_school": allocate_var_id_school,
+        "allocate_row_id_school": allocate_row_id_school,
+        "allocate_node_id_school": allocate_node_id_school
+    }
+
+    assigned_D={}
+    k_strs=["grocery","restaurant","school"]
+    all_dfs =[grocery_df, restaurant_df, school_df]
+
+
+    for a in range(len(k_array)):
+        assign_from_var_id = list(range(num_residents))
+        assigned_D["assign_from_var_id_"+k_strs[a]]=assign_from_var_id
+        assign_from_node_id = [df_from.iloc[group_values_from[i][0]]["node_ids"] for i in assign_from_var_id]
+        assign_to_var_id = []
+        assign_to_node_id = []
+        assign_type = []
+        dist = []
+
+        for i in range(num_residents):
+
+            # new_allocated
+            j_array = [msol[y[(k_,a)]] for k_ in range(k_array[a])]
+            dist_array_new = [d[i, msol[y[(k_,a)]]] for k_ in range(k_array[a])]
+            j_new = j_array[np.argmin(dist_array_new)]
+            # existing
+            if len(existing_list[a])>0:
+                j_array = [j-1 for j in existing_list[a]]
+                dist_array_e = [d[(i,j)] for j in existing_list[a]]
+                j_exist = j_array[np.argmin(dist_array_e)]
+                if min(dist_array_new)<min(dist_array_e):
+                    assign_to_var_id.append(j_new)
+                    assign_to_node_id.append(df_to.iloc[group_values_to[j_new][0]]["node_ids"])
+                    assign_type.append('allocated')
+                    dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j_new][0]]["node_ids"]])
+                else:
+                    assign_to_var_id.append(j_exist)
+                    if a==0:
+                        ind = j_exist-num_allocation
+                    elif a==1:
+                        ind = j_exist-num_allocation-num_cur_grocery
+                    else:
+                        ind = j_exist - num_allocation - num_cur_grocery-num_cur_restaurant
+                    assign_to_node_id.append(all_dfs[a].iloc[ind]["node_ids"])
+                    assign_type.append('existing')
+                    dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"],all_dfs[a].iloc[ind]["node_ids"]])
+            else:
+                assign_to_var_id.append(j_new)
+                assign_to_node_id.append(df_to.iloc[group_values_to[j_new][0]]["node_ids"])
+                assign_type.append('allocated')
+                dist.append(SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j_new][0]]["node_ids"]])
+        assigned_D["assign_from_var_id_" + k_strs[a]] = assign_from_var_id
+        assigned_D["assign_to_var_id_"+ k_strs[a]] = assign_to_var_id
+        assigned_D["assign_from_node_id_"+ k_strs[a]] = assign_from_node_id
+        assigned_D["assign_to_node_id_"+ k_strs[a]] = assign_to_node_id
+        assigned_D["assign_type_"+ k_strs[a]] = assign_type
+        assigned_D["dist_"+ k_strs[a]] = dist
+
+    return obj_value, [np.mean(assigned_D["dist_grocery"]), np.mean(assigned_D["dist_restaurant"]), np.mean(assigned_D["dist_school"])],   msol.get_solve_time(),  msol, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school],  msol.solve_status
+

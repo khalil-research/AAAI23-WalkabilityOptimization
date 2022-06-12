@@ -3,7 +3,7 @@ from map_utils import *
 import model_latest
 #from CP_models import *
 #from MIP_models import *
-from model_latest import opt_single, cur_assignment_single, opt_multiple, opt_single_depth, cur_assignment_single_depth, weights_array, dist_to_score, L_a, L_f_a, opt_multiple_depth, weights_array_multi, choice_weights, opt_single_CP
+from model_latest import opt_single, cur_assignment_single, opt_multiple, opt_single_depth, cur_assignment_single_depth, weights_array, dist_to_score, L_a, L_f_a, opt_multiple_depth, weights_array_multi, choice_weights, opt_single_CP, opt_multiple_CP
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import argparse
@@ -74,7 +74,7 @@ if __name__ == "__main__":
         dist_obj_L = []
         k_L = []
 
-    elif args.model in ['OptMultiple', 'OptMultipleDepth']:
+    elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP']:
         num_existing_L_grocery, num_existing_L_restaurant, num_existing_L_school = [], [], []
         dist_obj_L_grocery, dist_obj_L_restaurant, dist_obj_L_school = [], [], []
         k_L_grocery, k_L_restaurant, k_L_school = [], [], []
@@ -104,47 +104,6 @@ if __name__ == "__main__":
         SP_filename = "NIA_%s_prec_%s.txt" % (nia_id, prec)
         D = np.loadtxt(os.path.join(sp_save_path, SP_filename))
 
-        # # load model
-        # if args.model == 'cp2_old':
-        #     obj_value, solving_time, allocated_nodes, allocated_df, assigned_nodes, m = max_score_cp2(
-        #         residentials_df, parking_df,
-        #         D, solver_path)
-        # if args.model == 'CP_1':
-        #     obj_value, solving_time, allocated_nodes, allocated_df, assigned_nodes, m, log, num_residents, num_allocation = CP_1(
-        #         residentials_df, parking_df,
-        #         D, solver_path)
-        # if args.model == 'CP_1b':
-        #     obj_value, solving_time, allocated_nodes, allocated_df, assigned_nodes, m, log, num_residents, num_allocation = CP_1b(
-        #         residentials_df, parking_df,
-        #         D, solver_path)
-        # if args.model == 'CP_1b_no_x':
-        #     obj_value, solving_time, allocated_nodes, allocated_df, assigned_nodes, m, log, num_residents, num_allocation = CP_1b_no_x(
-        #         residentials_df, parking_df,
-        #         D, solver_path)
-        # if args.model == 'CP_2':
-        #     obj_value, solving_time, allocated_nodes, allocated_df, assigned_nodes, m, log, num_residents, num_allocation = CP_2(
-        #         residentials_df, parking_df,
-        #         D, solver_path)
-        # if args.model == 'CP_2b':
-        #     obj_value, solving_time, allocated_nodes, allocated_df, assigned_nodes, m, log, num_residents, num_allocation = CP_2b(
-        #         residentials_df, parking_df,
-        #         D, solver_path)
-        # if args.model == 'CP_2b_no_x':
-        #     obj_value, solving_time, allocated_nodes, allocated_df, assigned_nodes, m, log, num_residents, num_allocation = CP_2b_no_x(
-        #         residentials_df, parking_df,
-        #         D, solver_path)
-        # if args.model == 'SAT':
-        #     obj_value, solving_time, allocated_nodes, allocated_df, assigned_nodes, m, log, num_residents, num_allocation = SAT(
-        #         residentials_df, parking_df,
-        #         D, solver_path)
-        # if args.model == 'MaxSAT':
-        #     obj_value, solving_time, allocated_nodes, allocated_df, assigned_nodes, m, log, num_residents, num_allocation = MaxSAT(
-        #         residentials_df, parking_df,
-        #         D, solver_path)
-        # if args.model == 'MILP':
-        #     obj_value, solving_time, allocated_nodes, allocated_df, assigned_nodes, m, log, num_residents, num_allocation = MILP_comp(
-        #         residentials_df, parking_df,
-        #         D, solver_path)
         if args.model in ['OptSingle','OptSingleCP']:
             amenity_type = args.amenity
             amenity_df = all_dfs[all_strs.index(args.amenity)]
@@ -172,12 +131,16 @@ if __name__ == "__main__":
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
                 score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing, status = cur_assignment_single_depth(residentials_df,amenity_df, D,args.bp, args.focus,EPS=0.5)
 
-        elif args.model == 'OptMultiple':
+        elif args.model in ['OptMultiple','OptMultipleCP']:
             if args.k_array != '0,0,0':
                 k_array = [int(x) for x in args.k_array.split(',')]
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s.txt" % (nia_id, args.k_array))
-                score_obj, [dist_grocery, dist_restaurant, dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status\
-                    = opt_multiple(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name,args.bp, args.focus, EPS = 0.5)
+                if not 'CP' in args.model:
+                    score_obj, [dist_grocery, dist_restaurant, dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status\
+                        = opt_multiple(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name,args.bp, args.focus, EPS = 0.5)
+                else:
+                    score_obj, [dist_grocery, dist_restaurant,dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status \
+                        = opt_multiple_CP(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name, solver_path, EPS = 0.5)
             else:
                 multiple_dist = []
                 # grocery
@@ -264,7 +227,7 @@ if __name__ == "__main__":
 
             assigned_f_name = os.path.join(sol_folder, "assignment_NIA_%s_%s_%s.csv" % (nia_id, k_name, args.amenity))
             model_f_name = os.path.join(sol_folder, "NIA_%s_%s_%s.sol" % (nia_id, k_name, args.amenity))
-        elif args.model in ['OptMultiple','OptMultipleDepth']:
+        elif args.model in ['OptMultiple','OptMultipleDepth','OptMultipleCP']:
             if args.k_array != '0,0,0':
                 k_name = args.k_array
                 #allocated_f_name = os.path.join(sol_folder, "allocation_NIA_%s_%s.csv" % (nia_id, k_name))
@@ -301,7 +264,7 @@ if __name__ == "__main__":
                 k_L.append(0)
                 num_allocations_L.append(None)
 
-        elif args.model in ['OptMultiple', 'OptMultipleDepth']:
+        elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP']:
             num_existing_L_grocery.append(num_cur_grocery)
             num_existing_L_restaurant.append(num_cur_restaurant)
             num_existing_L_school.append(num_cur_school)
@@ -375,7 +338,7 @@ if __name__ == "__main__":
             }
             summary_df_filename = os.path.join(summary_folder, "NIA_%s_%s_%s.csv" % (nia_id, k_name, args.amenity))
 
-        elif args.model in ['OptMultiple', 'OptMultipleDepth']:
+        elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP']:
             results_D = {
                 "nia_id": nia_id_L,
                 "nia_name": nia_name_L,
