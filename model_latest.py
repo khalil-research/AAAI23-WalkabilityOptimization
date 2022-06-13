@@ -26,7 +26,6 @@ weights_array = np.array([3,restaurant_sum,1]) / (restaurant_sum+3+1) # grocery,
 weights_array_multi = np.array([3, .75, .45, .25, .25, .225, .225, .225, .225, .2, .2, 1]) / (restaurant_sum+3+1)
 w_choice_multi_amenity = choice_weights_raw / (restaurant_sum+3+1)
 time_limit=5*60*60 # 5h time limit
-time_limit=60 # 5h time limit
 
 def opt_single(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,bp, focus,EPS=0.5):
     '''single amenity case, no depth of choice'''
@@ -982,9 +981,10 @@ def opt_single_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_pat
     for i in range(num_residents):
         model.add(l[i] == model.min([dist[(i,k_)] for k_ in range(k)] + [d[(i,j)] for j in range(num_allocation + 1, num_allocation + 1 + num_cur)]) )
 
-    # PWL
+    # # PWL
     for i in range(num_residents):
-        model.add(f[i] == model.slope_piecewise_linear(l[i], [400, 1800, 2400], [-0.0125, -0.0607, -0.0167, 0], 0, 100))
+        #model.add(f[i] == model.slope_piecewise_linear(l[i], [400, 1800, 2400], [-0.0125, -0.0607, -0.0167, 0], 0, 100))
+        model.add(f[i] == model.coordinate_piecewise_linear(l[i], -0.0125, [0, 400, 1800, 2400, 5000000], [100, 95, 10, 0.5, 0.5], 0))
 
     for j in range(num_allocation):
         model.add(model.count(list(y.values()),j)<=capacity[j])
@@ -1131,7 +1131,8 @@ def opt_multiple_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matri
         model.add(l[i] == (model.sum((weights_array[a] * model.min([dist[(i,a,k_)] for k_ in range(k_array[a])] + [d[(i,j)] for j in existing_list[a]])) for a in range(len(k_array)))))
     # PWL
     for i in range(num_residents):
-        model.add(f[i]==model.slope_piecewise_linear(l[i], [400, 1800, 2400], [-0.0125, -0.0607, -0.0167, 0], 0, 100))
+        #model.add(f[i]==model.slope_piecewise_linear(l[i], [400, 1800, 2400], [-0.0125, -0.0607, -0.0167, 0], 0, 100))
+        model.add(f[i] == model.coordinate_piecewise_linear(l[i], -0.0125, [0, 400, 1800, 2400, 5000000],[100, 95, 10, 0.5, 0.5], 0))
 
     # distance element constrain
     for i in range(num_residents):
@@ -1299,8 +1300,7 @@ def opt_single_depth_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sa
     x = {}
     for i in range(num_residents):
         for c in range(tot_choices):
-            x[(i, c)] = model.integer_var(name=f'x[{i},{c}]')
-            x[(i, c)].set_domain(list(range(0,num_allocation))+list(range(num_allocation + 1, num_allocation + 1 + num_cur)))
+            x[(i, c)] = model.integer_var(min=0, max=(num_allocation + num_cur),name=f'x[{i},{c}]')
     f = {}
     for i in range(num_residents):
         f[i] = model.float_var(min=0, max=100, name=f'f[{i}]')
@@ -1312,26 +1312,25 @@ def opt_single_depth_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sa
     for i in range(num_residents):
         l[i] = model.float_var(min=0, max=L_a[-1], name=f'z[{i}]')
 
-
     # Constraints
     # distance element constrain
     for i in range(num_residents):
         for c in range(tot_choices):
-            model.add(dist[(i, c)] == (model.element(([d[(i, m)] for m in range(num_allocation)] + [d[(i,j)] for j in range(num_allocation, num_allocation + 1 + num_cur)]), x[(i, c)])))
+            model.add(dist[(i, c)] == (model.element((d[(i, m)] for m in range(num_allocation+1+num_cur)), x[(i, c)])))
     # calculate dist
     no_choice_sum = sum([choice_weights[c] * L_a[-2] for c in no_choices])
     for i in range(num_residents):
         model.add(l[i] == (model.sum(choice_weights[c] * dist[(i, c)] for c in range(tot_choices)) + no_choice_sum))
     # PWL
     for i in range(num_residents):
-        model.add(model.slope_piecewise_linear(l[i], [400, 1800, 2400], [-0.0125, -0.0607, -0.0167, 0], 0, 100) == f[i])
+        #model.add(model.slope_piecewise_linear(l[i], [400, 1800, 2400], [-0.0125, -0.0607, -0.0167, 0], 0, 100) == f[i])
+        model.add(f[i] == model.coordinate_piecewise_linear(l[i], -0.0125, [0, 400, 1800, 2400, 5000000], [100, 95, 10, 0.5, 0.5],0))
 
     ## activation
     for j in range(num_allocation):
         cond = [(x[(i, c)] == j) for i in range(num_residents) for c in range(tot_choices)]
         cond2 = [(y[k_] == j) for k_ in range(k)]
         model.add(model.if_then(model.any(cond),model.any(cond2)))
-
     ## node capacity
     for j in range(num_allocation):
         model.add(model.count(list(y.values()), j) <= capacity[j])
@@ -1427,7 +1426,7 @@ def opt_multiple_depth_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP
     if len(df_to)>0:
         df_to = df_to[['geometry', 'node_ids']]
 
-    m = gp.Model('max_walk_score')
+    model = CpoModel(name="max_score")
 
     # grouping
     groups_to=df_to.groupby('node_ids').groups # keys are node id, values are indices
@@ -1443,62 +1442,76 @@ def opt_multiple_depth_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP
     num_cur_restaurant = len(restaurant_df)
     num_cur_school = len(school_df)
 
-    cur_index=num_allocation
-    range_grocery_existing = list(range(cur_index, cur_index + num_cur_grocery))
-    range_grocery_dest_list = list(range(num_allocation)) + range_grocery_existing
+    cur_index = num_allocation
+    range_grocery_dest_list = list(range(cur_index, cur_index + num_cur_grocery))
+    range_grocery_dest_list = [item + 1 for item in range_grocery_dest_list]
     cur_index+=num_cur_grocery
-    range_restaurant_existing = list(range(cur_index, cur_index + num_cur_restaurant))
-    range_restaurant_dest_list = list(range(num_allocation)) + range_restaurant_existing
+    range_restaurant_dest_list = list(range(cur_index, cur_index + num_cur_restaurant))
+    range_restaurant_dest_list = [item + 1 for item in range_restaurant_dest_list]
     cur_index+=num_cur_restaurant
-    range_school_existing = list(range(cur_index, cur_index + num_cur_school))
-    range_school_dest_list = list(range(num_allocation)) + range_school_existing
+    range_school_dest_list = list(range(cur_index, cur_index + num_cur_school))
+    range_school_dest_list = [item + 1 for item in range_school_dest_list]
+    existing_list = [range_grocery_dest_list, range_restaurant_dest_list, range_school_dest_list]
 
     tot_choices = min(k_array[1] + num_cur_restaurant, len(w_choice_multi_amenity))
     no_choices = list(range(tot_choices, len(w_choice_multi_amenity)))
-
-    cartesian_prod_assign_grocery = list(product(range(num_residents), range_grocery_dest_list, [0]))
-    cartesian_prod_assign_restaurant = list(product(range(num_residents),range_restaurant_dest_list, [1], range(tot_choices)))
-    cartesian_prod_assign_school = list(product(range(num_residents), range_school_dest_list, [2]))
-
-    #cartesian_prod_allocate = list(product(range(num_residents), list(range(num_allocation)), [0,1,2]))
 
     # retrieve distances
     d = {(i, j): SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]] for i, j in list(product(range(num_residents), range(num_allocation)))}
 
     for i in range(num_residents):
-        start_id = num_allocation
+        # dummy node: inf distance
+        d[(i, num_allocation)] = L_a[-1]
+        start_id = num_allocation + 1
         for amenity_df in [grocery_df, restaurant_df, school_df]:
             for inst_row in range(len(amenity_df)):
                 cur_id = start_id + inst_row
                 d[(i, cur_id)] = SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], amenity_df.iloc[inst_row]["node_ids"]]
             start_id += len(amenity_df)
 
-    x = m.addVars(cartesian_prod_assign_grocery + cartesian_prod_assign_school, vtype=GRB.BINARY, name='assign')
-    x_choice = m.addVars(cartesian_prod_assign_restaurant, vtype=GRB.BINARY, name='assign')
-    y = m.addVars(list(product(range(num_allocation), range(len(k_array)))), vtype=GRB.INTEGER, name='activate')
-    l = m.addVars(num_residents, vtype=GRB.CONTINUOUS, name='dist')
-    f = m.addVars(num_residents, vtype=GRB.CONTINUOUS, ub=100, name='score')
-
-    # branching priority
-    if bp:
-        for t in list(product(range(num_allocation), range(len(k_array)))):
-            y[t].setAttr("BranchPriority", 100)
-        # for (n,m) in cartesian_prod_assign:
-        #     x[(n,m)].setAttr("BranchPriority",4)
-
+    # variables
+    y = {}
+    for a in range(len(k_array)):
+        for k_ in range(k_array[a]):
+            y[(k_, a)] = model.integer_var(min=0, max=num_allocation, name=f'y[{k_},{a}]')  # include dummy node
+    x = {}
+    for i in range(num_residents):
+        for c in range(tot_choices):
+            x[(i, c)] = model.integer_var(name=f'x[{i},{c}]')
+            x[(i, c)].set_domain(list(range(0,num_allocation))+range_restaurant_dest_list)
+    dist = {}  # z
+    for i in range(num_residents):
+        for a in [0,2]:
+            for k_ in range(k_array[a]):
+                dist[(i, a, k_)] = model.float_var(min=0, max=L_a[-1], name=f'dist[{i},{a},{k_}]')
+    f = {}
+    for i in range(num_residents):
+        f[i] = model.float_var(min=0, max=100, name=f'f[{i}]')
+    l = {}
+    for i in range(num_residents):
+        l[i] = model.float_var(min=0, max=L_a[-1], name=f'z[{i}]')
+    dist_r = {}
+    for i in range(num_residents):
+        for c in range(tot_choices):
+            dist_r[(i, c)] = model.float_var(min=0, max=L_a[-1], name=f'dist[{i},{c}]')
 
     # Constraints
     ## weighted distance
     no_choice_sum = sum([w_choice_multi_amenity[c] * L_a[-2] for c in no_choices])
-    m.addConstrs(l[i] == (
-                 (weights_array[0] * gp.quicksum(x[(i, j, 0)] * d[(i, j)] for j in range_grocery_dest_list))
-                + (gp.quicksum(w_choice_multi_amenity[c] * (gp.quicksum(x_choice[(i, j, 1, c)] * d[(i, j)] for j in range_restaurant_dest_list)) for c in range(tot_choices)) + no_choice_sum)
-                + (weights_array[2] * gp.quicksum(x[(i, j, 2)] * d[(i, j)] for j in range_school_dest_list))
-                )
-                 for i in range(num_residents))
-    # PWL score
+    model.add(l[i] ==(weights_array[0] * model.min([dist[(i,0,k_)] for k_ in range(k_array[0])] + [d[(i,j)] for j in existing_list[0]]))
+                    + (model.sum(w_choice_multi_amenity[c] * dist_r[(i, c)] for c in range(tot_choices)) + no_choice_sum)
+                    + (weights_array[2] * model.min([dist[(i, 2, k_)] for k_ in range(k_array[2])] + [d[(i, j)] for j in existing_list[2]]))
+              )
+
+    #####################################
     for i in range(num_residents):
-        m.addGenConstrPWL(l[i], f[i], L_a, L_f_a)
+        for c in range(tot_choices):
+            model.add(dist_r[(i, c)] == (model.element(([d[(i, m)] for m in range(num_allocation + 1)] + [d[(i, j)] for j in [existing_list[0]+existing_list[1]+existing_list[2]]]), x[(i, c)])))
+
+    # PWL
+    for i in range(num_residents):
+        model.add(model.slope_piecewise_linear(l[i], [400, 1800, 2400], [-0.0125, -0.0607, -0.0167, 0], 0, 100) == f[i])
+
     ## assgined to one instance of amenity
     m.addConstrs((gp.quicksum(x[(i, j, 0)] for j in range_grocery_dest_list) == 1 for i in range(num_residents)), name='grocery demand')
     #m.addConstrs((gp.quicksum(x[(i, j, 1)] for j in range_restaurant_dest_list) == 1 for i in range(num_residents)), name='restaurant demand')
