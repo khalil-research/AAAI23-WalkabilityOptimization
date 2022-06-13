@@ -984,7 +984,7 @@ def opt_single_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_pat
     # # PWL
     for i in range(num_residents):
         #model.add(f[i] == model.slope_piecewise_linear(l[i], [400, 1800, 2400], [-0.0125, -0.0607, -0.0167, 0], 0, 100))
-        model.add(f[i] == model.coordinate_piecewise_linear(l[i], -0.0125, [0, 400, 1800, 2400, 5000000], [100, 95, 10, 0.5, 0.5], 0))
+        model.add(f[i] == model.coordinate_piecewise_linear(l[i], -0.0125, [0, 400, 1800, 2400, 5000000], [100, 95, 10, 1, 1], 0))
 
     for j in range(num_allocation):
         model.add(model.count(list(y.values()),j)<=capacity[j])
@@ -1132,7 +1132,7 @@ def opt_multiple_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matri
     # PWL
     for i in range(num_residents):
         #model.add(f[i]==model.slope_piecewise_linear(l[i], [400, 1800, 2400], [-0.0125, -0.0607, -0.0167, 0], 0, 100))
-        model.add(f[i] == model.coordinate_piecewise_linear(l[i], -0.0125, [0, 400, 1800, 2400, 5000000],[100, 95, 10, 0.5, 0.5], 0))
+        model.add(f[i] == model.coordinate_piecewise_linear(l[i], -0.0125, [0, 400, 1800, 2400, 5000000],[100, 95, 10, 1, 1], 0))
 
     # distance element constrain
     for i in range(num_residents):
@@ -1149,7 +1149,7 @@ def opt_multiple_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matri
         if k_array[a]>1:
             for k_ in range((k_array[a])-1):
                 model.add(y[(k_,a)]<=y[(k_+1,a)])
-        model.add(model.all_diff([y[(k_, a)] for k_ in range(k_array[a])]))
+        #model.add(model.all_diff([y[(k_, a)] for k_ in range(k_array[a])]))
 
     # # objective
     model.add(model.maximize(model.sum(f[i] for i in range(num_residents))/num_residents))
