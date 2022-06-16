@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import numpy as np
 import pickle
+from greedy import greedy_multiple_depth
 
 parser = argparse.ArgumentParser(description='Enter model name:grb_PWL,scratch')
 parser.add_argument("model", help="model", type=str)
@@ -74,7 +75,7 @@ if __name__ == "__main__":
         dist_obj_L = []
         k_L = []
 
-    elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP']:
+    elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth']:
         num_existing_L_grocery, num_existing_L_restaurant, num_existing_L_school = [], [], []
         dist_obj_L_grocery, dist_obj_L_restaurant, dist_obj_L_school = [], [], []
         k_L_grocery, k_L_restaurant, k_L_school = [], [], []
@@ -174,12 +175,17 @@ if __name__ == "__main__":
                 solving_time=None
                 status=None
 
-        elif args.model == 'OptMultipleDepth':
+        elif args.model in ['OptMultipleDepth', 'OptMultipleDepthCP', 'GreedyMultipleDepth']:
             if args.k_array != '0,0,0':
                 k_array = [int(x) for x in args.k_array.split(',')]
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s.txt" % (nia_id, args.k_array))
-                score_obj, [dist_grocery, dist_restaurant, dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status\
-                    = opt_multiple_depth(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name,args.bp, args.focus, EPS = 0.5)
+                if not 'CP' in args.model:
+                    if not 'Greedy' in args.model:
+                        score_obj, [dist_grocery, dist_restaurant, dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status\
+                            = opt_multiple_depth(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name,args.bp, args.focus, EPS = 0.5)
+                    else:
+                        score_obj, [dist_grocery, dist_restaurant, dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status \
+                            = greedy_multiple_depth(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array)
             else:
                 multiple_dist = []
                 # grocery
@@ -230,7 +236,7 @@ if __name__ == "__main__":
 
             assigned_f_name = os.path.join(sol_folder, "assignment_NIA_%s_%s_%s.csv" % (nia_id, k_name, args.amenity))
             model_f_name = os.path.join(sol_folder, "NIA_%s_%s_%s.sol" % (nia_id, k_name, args.amenity))
-        elif args.model in ['OptMultiple','OptMultipleDepth','OptMultipleCP']:
+        elif args.model in ['OptMultiple','OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth']:
             if args.k_array != '0,0,0':
                 k_name = args.k_array
                 #allocated_f_name = os.path.join(sol_folder, "allocation_NIA_%s_%s.csv" % (nia_id, k_name))
@@ -244,7 +250,8 @@ if __name__ == "__main__":
             assigned_f_name = os.path.join(sol_folder, "assignment_NIA_%s_%s.csv" % (nia_id, k_name))
             model_f_name = os.path.join(sol_folder, "NIA_%s_%s.sol" % (nia_id, k_name))
 
-        pd.DataFrame.from_dict(assigned_D).to_csv(assigned_f_name)
+        if assigned_D:
+            pd.DataFrame.from_dict(assigned_D).to_csv(assigned_f_name)
         if m:
             m.write(model_f_name)
 
@@ -267,7 +274,7 @@ if __name__ == "__main__":
                 k_L.append(0)
                 num_allocations_L.append(None)
 
-        elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP']:
+        elif args.model in ['OptMultiple', 'OptMultipleDepth', 'OptMultipleCP', 'GreedyMultipleDepth']:
             num_existing_L_grocery.append(num_cur_grocery)
             num_existing_L_restaurant.append(num_cur_restaurant)
             num_existing_L_school.append(num_cur_school)
@@ -341,7 +348,7 @@ if __name__ == "__main__":
             }
             summary_df_filename = os.path.join(summary_folder, "NIA_%s_%s_%s.csv" % (nia_id, k_name, args.amenity))
 
-        elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP']:
+        elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth']:
             results_D = {
                 "nia_id": nia_id_L,
                 "nia_name": nia_name_L,

@@ -113,7 +113,7 @@ def opt_single(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path,b
     allocate_row_id = []
     allocate_node_id = []
     for j in allocate_var_id:
-        for l in range(round(y[j].x)):
+        for l in range(int(np.round(y[j].x))):
             allocate_row_id.append(group_values_to[j][l])
             allocate_node_id.append(df_to.iloc[group_values_to[j][l]]["node_ids"])
     allocated_D = {
@@ -269,7 +269,7 @@ def opt_single_depth(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_
     allocate_row_id = []
     allocate_node_id = []
     for j in allocate_var_id_:
-        for l in range(round(y[j].x)):
+        for l in range(int(np.round(y[j].x))):
             allocate_var_id.append(j)
             allocate_row_id.append(group_values_to[j][l])
             allocate_node_id.append(df_to.iloc[group_values_to[j][l]]["node_ids"])
@@ -1474,11 +1474,13 @@ def opt_multiple_depth_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP
     for a in range(len(k_array)):
         for k_ in range(k_array[a]):
             y[(k_, a)] = model.integer_var(min=0, max=num_allocation, name=f'y[{k_},{a}]')  # include dummy node
+    # for restaurant
     x = {}
     for i in range(num_residents):
         for c in range(tot_choices):
             x[(i, c)] = model.integer_var(name=f'x[{i},{c}]')
             x[(i, c)].set_domain(list(range(0,num_allocation))+range_restaurant_dest_list)
+    # for grocery and school
     dist = {}  # z
     for i in range(num_residents):
         for a in [0,2]:
@@ -1490,6 +1492,7 @@ def opt_multiple_depth_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP
     l = {}
     for i in range(num_residents):
         l[i] = model.float_var(min=0, max=L_a[-1], name=f'z[{i}]')
+    # distance to each restaurant choice
     dist_r = {}
     for i in range(num_residents):
         for c in range(tot_choices):
@@ -1503,44 +1506,59 @@ def opt_multiple_depth_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP
                     + (weights_array[2] * model.min([dist[(i, 2, k_)] for k_ in range(k_array[2])] + [d[(i, j)] for j in existing_list[2]]))
               )
 
-    #####################################
+    for i in range(num_residents):
+        for a in [0,2]:
+            for k_ in range(k_array[a]):
+                model.add(
+                    dist[(i, a, k_)] == (model.element([d[(i, m)] for m in range(num_allocation + 1)], y[(k_, a)])))
+
     for i in range(num_residents):
         for c in range(tot_choices):
-            model.add(dist_r[(i, c)] == (model.element(([d[(i, m)] for m in range(num_allocation + 1)] + [d[(i, j)] for j in [existing_list[0]+existing_list[1]+existing_list[2]]]), x[(i, c)])))
+            model.add(dist_r[(i, c)] == (model.element(([d[(i, m)] for m in range(num_allocation + 1)] + [d[(i, j)] for j in range_restaurant_dest_list]), x[(i, c)])))
 
     # PWL
     for i in range(num_residents):
-        model.add(model.slope_piecewise_linear(l[i], [400, 1800, 2400], [-0.0125, -0.0607, -0.0167, 0], 0, 100) == f[i])
+        #model.add(model.slope_piecewise_linear(l[i], [400, 1800, 2400], [-0.0125, -0.0607, -0.0167, 0], 0, 100) == f[i])
+        model.add(f[i] == model.coordinate_piecewise_linear(l[i], -0.0125, [0, 400, 1800, 2400, 5000000], [100, 95, 10, 0.5, 0.5], 0))
 
-    ## assgined to one instance of amenity
-    m.addConstrs((gp.quicksum(x[(i, j, 0)] for j in range_grocery_dest_list) == 1 for i in range(num_residents)), name='grocery demand')
-    #m.addConstrs((gp.quicksum(x[(i, j, 1)] for j in range_restaurant_dest_list) == 1 for i in range(num_residents)), name='restaurant demand')
-    m.addConstrs((gp.quicksum(x[(i, j, 2)] for j in range_school_dest_list) == 1 for i in range(num_residents)), name='school demand')
-    ## assign choices
-    m.addConstrs(((gp.quicksum(x_choice[(i, j, 1, c)] for j in range_restaurant_dest_list) == 1) for c in range(tot_choices) for i in range(num_residents)), name='choices')
-    ## resource constraint
-    m.addConstrs(((gp.quicksum(y[(j,a)] for a in range(len(weights_array))) <= capacity[j]) for j in range(num_allocation)), name='capacity')
-    # activation
-    m.addConstrs((x[(i,j,a)] <= y[(j,a)] for (i, j ,a) in list(product(range(num_residents), list(range(num_allocation)), [0,2]))), name='activation1')
-    m.addConstrs((x_choice[(i, j, a, c)] <= y[(j, a)] for (i, j, a, c) in list(product(range(num_residents), list(range(num_allocation)),[1], range(tot_choices)))), name='activation2')
-    # resource constraint
-    m.addConstrs(((gp.quicksum(y[(j, a)] for j in range(num_allocation)) <= k_array[a]) for a in range(len(k_array))), name='resource')
+    ## activation
+    for j in range(num_allocation):
+        cond = [(x[(i, c)] == j) for i in range(num_residents) for c in range(tot_choices)]
+        cond2 = [(y[(k_,1)] == j) for k_ in range(k_array[1])]
+        model.add(model.if_then(model.any(cond),model.any(cond2)))
+
+    ## node capacity
+    for j in range(num_allocation):
+        model.add(model.count(list(y.values()), j) <= capacity[j])
 
     # choices can not be the same place
-    ## newly allocated
-    m.addConstrs(((gp.quicksum(x_choice[(i, j, 1, c)] for c in range(tot_choices)) <= y[(j, 1)]) for j in range(num_allocation) for i in range(num_residents)), name='choices')
-    ## currently existing
-    m.addConstrs(((gp.quicksum(x_choice[(i, j, 1, c)] for c in range(tot_choices)) <= 1) for j in range_restaurant_existing for i in range(num_residents)), name='choices')
+    # newly allocated
+    for i in range(num_residents):
+        for j in range(num_allocation):
+            model.add(model.count([x[(i, c)] for c in range(tot_choices)], j) <= model.count([y[(k_, 1)] for k_ in range(k_array[1])], j))
+        for m in range(range_restaurant_dest_list):
+            model.add(model.count([x[(i, c)] for c in range(tot_choices)], m) <= 1)
 
-    # objective
-    m.Params.Threads = threads
-    m.setObjective(gp.quicksum(f[n] for n in range(num_residents))/num_residents, GRB.MAXIMIZE)
-    m.setParam("LogFile", results_sava_path)
-    m.Params.TimeLimit = time_limit
-    m.Params.MIPFocus = focus
-    m.Params.NodefileStart = 0.5
+    # symmetry breaking
+    if (k_array[1] > 1):
+        for k_ in range(k_array[1]-1):
+            model.add(y[(k_, 1)] <= y[(k_+1, 1)])
+    if tot_choices > 1:
+        for c in range(tot_choices - 1):
+            for i in range(num_residents):
+                model.add(dist_r[(i, c)] <= dist_r[(i, c+1)])
 
-    m.optimize()
+    # # objective
+    model.add(model.maximize(model.sum(f[i] for i in range(num_residents)) / num_residents))
+
+    msol = model.solve(execfile=solver_path, TimeLimit=time_limit, Workers=threads)
+    obj_value = msol.get_objective_values()[0][0]
+
+    log_str = msol.solver_log
+    with open(results_sava_path, 'w') as f:
+        f.write(log_str)
+
+    ###################
 
     allocations = [(j, a) for (j, a) in y.keys() if (y[(j, a)].x) > EPS]
 
