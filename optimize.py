@@ -3,7 +3,7 @@ from map_utils import *
 import model_latest
 #from CP_models import *
 #from MIP_models import *
-from model_latest import opt_single, cur_assignment_single, opt_multiple, opt_single_depth, cur_assignment_single_depth, weights_array, dist_to_score, L_a, L_f_a, opt_multiple_depth, weights_array_multi, choice_weights, opt_single_CP, opt_multiple_CP,opt_single_depth_CP
+from model_latest import opt_single, cur_assignment_single, opt_multiple, opt_single_depth, cur_assignment_single_depth, weights_array, dist_to_score, L_a, L_f_a, opt_multiple_depth, weights_array_multi, choice_weights, opt_single_CP, opt_multiple_CP,opt_single_depth_CP, opt_multiple_depth_CP
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import argparse
@@ -75,7 +75,7 @@ if __name__ == "__main__":
         dist_obj_L = []
         k_L = []
 
-    elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth']:
+    elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP','OptMultipleDepthCP','GreedyMultipleDepth']:
         num_existing_L_grocery, num_existing_L_restaurant, num_existing_L_school = [], [], []
         dist_obj_L_grocery, dist_obj_L_restaurant, dist_obj_L_school = [], [], []
         k_L_grocery, k_L_restaurant, k_L_school = [], [], []
@@ -186,6 +186,9 @@ if __name__ == "__main__":
                     else:
                         score_obj, [dist_grocery, dist_restaurant, dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status \
                             = greedy_multiple_depth(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array)
+                else:
+                    score_obj, [dist_grocery, dist_restaurant, dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status \
+                        = opt_multiple_depth_CP(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array, threads, log_file_name, solver_path, EPS=0.5)
             else:
                 multiple_dist = []
                 # grocery
@@ -236,7 +239,7 @@ if __name__ == "__main__":
 
             assigned_f_name = os.path.join(sol_folder, "assignment_NIA_%s_%s_%s.csv" % (nia_id, k_name, args.amenity))
             model_f_name = os.path.join(sol_folder, "NIA_%s_%s_%s.sol" % (nia_id, k_name, args.amenity))
-        elif args.model in ['OptMultiple','OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth']:
+        elif args.model in ['OptMultiple','OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth','OptMultipleDepthCP']:
             if args.k_array != '0,0,0':
                 k_name = args.k_array
                 #allocated_f_name = os.path.join(sol_folder, "allocation_NIA_%s_%s.csv" % (nia_id, k_name))
@@ -274,7 +277,7 @@ if __name__ == "__main__":
                 k_L.append(0)
                 num_allocations_L.append(None)
 
-        elif args.model in ['OptMultiple', 'OptMultipleDepth', 'OptMultipleCP', 'GreedyMultipleDepth']:
+        elif args.model in ['OptMultiple', 'OptMultipleDepth', 'OptMultipleCP', 'GreedyMultipleDepth','OptMultipleDepthCP']:
             num_existing_L_grocery.append(num_cur_grocery)
             num_existing_L_restaurant.append(num_cur_restaurant)
             num_existing_L_school.append(num_cur_school)
@@ -348,7 +351,7 @@ if __name__ == "__main__":
             }
             summary_df_filename = os.path.join(summary_folder, "NIA_%s_%s_%s.csv" % (nia_id, k_name, args.amenity))
 
-        elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth']:
+        elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth','OptMultipleDepthCP']:
             results_D = {
                 "nia_id": nia_id_L,
                 "nia_name": nia_name_L,
