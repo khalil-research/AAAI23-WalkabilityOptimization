@@ -1502,9 +1502,9 @@ def opt_multiple_depth_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP
     ## weighted distance
     no_choice_sum = sum([w_choice_multi_amenity[c] * L_a[-2] for c in no_choices])
     for i in range(num_residents):
-        model.add(l[i] ==(weights_array[0] * model.min([dist[(i,0,k_)] for k_ in range(k_array[0])] + [d[(i,j)] for j in existing_list[0]]))
+        model.add(l[i] == ( (weights_array[0] * model.min([dist[(i,0,k_)] for k_ in range(k_array[0])] + [d[(i,j)] for j in existing_list[0]]))
                     + (model.sum(w_choice_multi_amenity[c] * dist_r[(i, c)] for c in range(tot_choices)) + no_choice_sum)
-                    + (weights_array[2] * model.min([dist[(i, 2, k_)] for k_ in range(k_array[2])] + [d[(i, j)] for j in existing_list[2]]))
+                    + (weights_array[2] * model.min([dist[(i, 2, k_)] for k_ in range(k_array[2])] + [d[(i, j)] for j in existing_list[2]])) )
               )
 
     for i in range(num_residents):
@@ -1515,7 +1515,7 @@ def opt_multiple_depth_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP
 
     for i in range(num_residents):
         for c in range(tot_choices):
-            model.add(dist_r[(i, c)] == (model.element(([d[(i, m)] for m in range(num_allocation + 1)] + [d[(i, j)] for j in range_restaurant_dest_list]), x[(i, c)])))
+            model.add(dist_r[(i, c)] == (model.element([d[(i, m)] for m in range(num_allocation + 1)] + [d[(i, j)] for j in (existing_list[0]+existing_list[1]+existing_list[2])], x[(i, c)])))
 
     # PWL
     for i in range(num_residents):
