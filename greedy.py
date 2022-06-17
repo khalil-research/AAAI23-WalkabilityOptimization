@@ -62,9 +62,10 @@ def greedy_multiple_depth(df_from,df_to,grocery_df, restaurant_df, school_df, SP
     ind = np.argsort(mat_res, axis=1)
     d_res = np.take_along_axis(mat_res, ind, axis=1)
     if d_res.shape[1] < 10:
-        # pad
+        # pad with 2400 for non-existing choices
         d_res = np.pad(d_res, ((0, 0), (0, 10-d_res.shape[1])), constant_values=L_a[-2])
     if d_res.shape[1] > 10:
+        # take first 10 choices
         d_res=d_res[:,:10]
     mat_school = np.array([[d[(i, j)] for j in range_school_existing] for i in range(num_residents)])
     d_grocery = np.amin(mat_grocery, axis=1)
