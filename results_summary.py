@@ -8,7 +8,7 @@ import json
 
 def shifted_geo_mean(L, s=1):
     a = np.array(L)
-    shifted = a+1
+    shifted = a+s
     return (shifted.prod())**(1.0/len(a)) - s
 
 def get_results_df(results_folder, model_name,amenity_name=None):
@@ -25,7 +25,7 @@ def get_results_df(results_folder, model_name,amenity_name=None):
 
     return final_df
 
-def plot_time_vs_size_multiple(results_folder, plot_folder, models, display_names):
+def plot_time_vs_size_multiple(results_folder, plot_folder, models, display_names, save_name):
 
     data_root = "/Users/weimin/Documents/MASC/walkability_data"
     D_NIA = ct_nia_mapping(
@@ -53,17 +53,17 @@ def plot_time_vs_size_multiple(results_folder, plot_folder, models, display_name
 
     plt.xlabel("|M|+|N|")
     plt.ylabel("Shifted geo mean")
-    plt.savefig(os.path.join(plot_folder,  "shifted geo mean multiple.png"))
+    plt.title(save_name)
+    plt.savefig(os.path.join(plot_folder,  save_name))
     return
 
-def plot_time_vs_size_single(results_folder, plot_folder, models, display_names):
+def plot_time_vs_size_single(results_folder, plot_folder, models, display_names, save_name):
     plt.clf()
 
     for i in range(len(models)):
 
         model_name = models[i]
         display_name = display_names[i]
-
 
         if "Depth" in model_name:
             amenities = ["restaurant"]
@@ -83,7 +83,8 @@ def plot_time_vs_size_single(results_folder, plot_folder, models, display_names)
 
     plt.xlabel("|M|+|N|")
     plt.ylabel("Shifted geo mean")
-    plt.savefig(os.path.join(plot_folder,  "shifted geo mean single.png"))
+    plt.title(save_name)
+    plt.savefig(os.path.join(plot_folder,  save_name))
     return
 
 
@@ -147,19 +148,55 @@ def plot_obj_vs_k(results_df, plot_folder, amenity_name, model_name, display_nam
     return
 
 
+def get_quality(results_folder, plot_folder, models, display_names, save_name):
+    #plt.clf()
+
+    for i in range(len(models)):
+
+        model_name = models[i]
+        display_name = display_names[i]
+
+        if "Depth" in model_name:
+            amenities = ["restaurant"]
+        else:
+            amenities = ["grocery","restaurant","school"]
+
+        for amenity in amenities:
+
+            results_df = get_results_df(results_folder, model_name, amenity)
+            results_df = results_df[results_df["k"]>0]
+            #size = results_df.groupby("nia_id").mean()["num_res"] + results_df.groupby("nia_id").mean()["num_parking"]
+            #avg_time = results_df.groupby("nia_id")["solving_time"].apply(shifted_geo_mean)
+            #new_x, new_y = zip(*sorted(zip(size, avg_time)))
+
+            #plt.plot(new_x, new_y, '--o', label=display_name + "-"+ amenity)
+            #plt.legend(prop={'size': 6})
+
+    #plt.xlabel("|M|+|N|")
+    #plt.ylabel("Shifted geo mean")
+    #plt.title(save_name)
+    #plt.savefig(os.path.join(plot_folder,  save_name))
+    return
+
 if __name__ == "__main__":
 
     results_folder = "saved_results"
     plot_folder = "results_plot"
-    for model_name in ["OptSingle_False_0", "OptSingleDepth_False_0"]:
-        if model_name=="OptSingle_False_0":
-            amenity_L=["restaurant", "grocery", "school"]
-        elif model_name=="OptSingleDepth_False_0":
-            amenity_L = ["restaurant"]
-        for amenity in amenity_L:
-            results_df = get_results_df(results_folder, model_name, amenity)
-            plot_obj_vs_k(results_df, plot_folder,amenity,model_name, model_name.split("_")[0])
+    # for model_name in ["OptSingleCP_False_0"]:
+    #     if model_name in ["OptSingle_False_0","OptSingleCP_False_0"]:
+    #         amenity_L=["restaurant", "grocery", "school"]
+    #     elif model_name=="OptSingleDepth_False_0":
+    #         amenity_L = ["restaurant"]
+    #     for amenity in amenity_L:
+    #         results_df = get_results_df(results_folder, model_name, amenity)
+    #         plot_obj_vs_k(results_df, plot_folder,amenity,model_name, model_name.split("_")[0])
 
-    #plot_time_vs_size_single(results_folder, plot_folder, ["OptSingle_False_0", "OptSingleDepth_False_0"],["Single", "Single-Depth"])
-    #plot_time_vs_size_multiple(results_folder, plot_folder, ["OptMultiple_False_0", "OptMultipleDepth_False_0"], ["Multiple", "Multiple-Depth"])
-    #plot_time_vs_size_multiple(results_folder, plot_folder, ["OptMultiple_False_0","OptMultipleDepth_False_0"], ["Multiple", "MultipleDepth"])
+    plot_time_vs_size_single(results_folder, os.path.join(plot_folder,"time"), ["OptSingle_False_0", "OptSingleCP_False_0"],
+                             ["MILP",  "CP"],"Single amenity case without depth: shifted geo mean - input size")
+    plot_time_vs_size_single(results_folder, os.path.join(plot_folder, "time"), ["OptSingleDepth_False_0", "OptSingleDepthCP_False_0"],
+                             ["MILP", "CP"], "Single amenity case with depth of choice: shifted geo mean - input size")
+    plot_time_vs_size_multiple(results_folder, os.path.join(plot_folder,"time"),
+                    ["OptMultiple_False_0","OptMultipleCP_False_0"], ["MILP","CP"], "Multiple amenity case without depth: shifted geo mean - input size")
+    plot_time_vs_size_multiple(results_folder, os.path.join(plot_folder, "time"),
+                               ["OptMultipleDepth_False_0", "OptMultipleDepthCP_False_0"],
+                               ["MILP", "CP"], "Multiple amenity case with depth of choice: shifted geo mean - input size")

@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 import numpy as np
 import pickle
-from greedy import greedy_multiple_depth
+from greedy import greedy_multiple_depth, greedy_multiple, greedy_single, greedy_single_depth
 
 parser = argparse.ArgumentParser(description='Enter model name:grb_PWL,scratch')
 parser.add_argument("model", help="model", type=str)
@@ -70,12 +70,12 @@ if __name__ == "__main__":
     num_allocations_L = []
     status_L = []
 
-    if args.model in ['OptSingle', 'OptSingleDepth','OptSingleCP','OptSingleDepthCP']:
+    if args.model in ['OptSingle', 'OptSingleDepth','OptSingleCP','OptSingleDepthCP','GreedySingle','GreedySingleDepth']:
         num_existing_L = []
         dist_obj_L = []
         k_L = []
 
-    elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP','OptMultipleDepthCP','GreedyMultipleDepth']:
+    elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP','OptMultipleDepthCP','GreedyMultipleDepth','GreedyMultiple']:
         num_existing_L_grocery, num_existing_L_restaurant, num_existing_L_school = [], [], []
         dist_obj_L_grocery, dist_obj_L_restaurant, dist_obj_L_school = [], [], []
         k_L_grocery, k_L_restaurant, k_L_school = [], [], []
@@ -105,14 +105,18 @@ if __name__ == "__main__":
         SP_filename = "NIA_%s_prec_%s.txt" % (nia_id, prec)
         D = np.loadtxt(os.path.join(sp_save_path, SP_filename))
 
-        if args.model in ['OptSingle','OptSingleCP']:
+        if args.model in ['OptSingle','OptSingleCP','GreedySingle']:
             amenity_type = args.amenity
             amenity_df = all_dfs[all_strs.index(args.amenity)]
             if args.k:
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, args.k, args.amenity))
                 if not 'CP' in args.model:
-                    score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single(
-                        residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, args.bp, args.focus, EPS = 0.5)
+                    if (not 'Greedy' in args.model):
+                        score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single(
+                            residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, args.bp, args.focus, EPS = 0.5)
+                    else:
+                        score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = greedy_single(
+                            residentials_df, parking_df, amenity_df, D, args.k)
                 else:
                     score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single_CP(
                         residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, solver_path, EPS=0.5)
@@ -120,14 +124,18 @@ if __name__ == "__main__":
             else:
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
                 score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing, status = cur_assignment_single(residentials_df,amenity_df, D,args.bp, args.focus,EPS=0.5)
-        elif args.model in ['OptSingleDepth','OptSingleDepthCP']:
+        elif args.model in ['OptSingleDepth','OptSingleDepthCP','GreedySingleDepth']:
             amenity_type = args.amenity
             amenity_df = all_dfs[all_strs.index(args.amenity)]
             if args.k:
                 log_file_name = os.path.join(sol_folder,"log_NIA_%s_%s_%s.txt" % (nia_id, args.k, args.amenity))
                 if not 'CP' in args.model:
-                    score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single_depth(
-                        residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, args.bp, args.focus, EPS=0.5)
+                    if (not 'Greedy' in args.model):
+                        score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single_depth(
+                            residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, args.bp, args.focus, EPS=0.5)
+                    else:
+                        score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = greedy_single_depth(
+                            residentials_df, parking_df, amenity_df, D, args.k)
                 else:
                     score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single_depth_CP(
                         residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, solver_path,EPS=0.5)
@@ -135,13 +143,17 @@ if __name__ == "__main__":
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
                 score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing, status = cur_assignment_single_depth(residentials_df,amenity_df, D,args.bp, args.focus,EPS=0.5)
 
-        elif args.model in ['OptMultiple','OptMultipleCP']:
+        elif args.model in ['OptMultiple','OptMultipleCP', 'GreedyMultiple']:
             if args.k_array != '0,0,0':
                 k_array = [int(x) for x in args.k_array.split(',')]
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s.txt" % (nia_id, args.k_array))
                 if not 'CP' in args.model:
-                    score_obj, [dist_grocery, dist_restaurant, dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status\
-                        = opt_multiple(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name,args.bp, args.focus, EPS = 0.5)
+                    if not 'Greedy' in args.model:
+                        score_obj, [dist_grocery, dist_restaurant, dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status\
+                            = opt_multiple(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name,args.bp, args.focus, EPS = 0.5)
+                    else:
+                        score_obj, [dist_grocery, dist_restaurant, dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status \
+                            = greedy_multiple(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array)
                 else:
                     score_obj, [dist_grocery, dist_restaurant,dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status \
                         = opt_multiple_CP(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array,threads, log_file_name, solver_path, EPS = 0.5)
@@ -228,7 +240,7 @@ if __name__ == "__main__":
             print("choose model name")
 
         # save allocated results for mapping
-        if args.model in ['OptSingle','OptSingleDepth','OptSingleCP','OptSingleDepthCP']:
+        if args.model in ['OptSingle','OptSingleDepth','OptSingleCP','OptSingleDepthCP','GreedySingle','GreedySingleDepth']:
 
             if args.k:
                 k_name = args.k
@@ -239,7 +251,7 @@ if __name__ == "__main__":
 
             assigned_f_name = os.path.join(sol_folder, "assignment_NIA_%s_%s_%s.csv" % (nia_id, k_name, args.amenity))
             model_f_name = os.path.join(sol_folder, "NIA_%s_%s_%s.sol" % (nia_id, k_name, args.amenity))
-        elif args.model in ['OptMultiple','OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth','OptMultipleDepthCP']:
+        elif args.model in ['OptMultiple','OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth','OptMultipleDepthCP', 'GreedyMultiple']:
             if args.k_array != '0,0,0':
                 k_name = args.k_array
                 #allocated_f_name = os.path.join(sol_folder, "allocation_NIA_%s_%s.csv" % (nia_id, k_name))
@@ -267,7 +279,7 @@ if __name__ == "__main__":
         nia_id_L.append(nia_id)
         nia_name_L.append(D_NIA[nia_id]['name'])
 
-        if args.model in ['OptSingle', 'OptSingleDepth','OptSingleCP','OptSingleDepthCP']:
+        if args.model in ['OptSingle', 'OptSingleDepth','OptSingleCP','OptSingleDepthCP','GreedySingle','GreedySingleDepth']:
             dist_obj_L.append(dist_obj)
             num_existing_L.append(num_existing)
             if args.k:
@@ -277,7 +289,7 @@ if __name__ == "__main__":
                 k_L.append(0)
                 num_allocations_L.append(None)
 
-        elif args.model in ['OptMultiple', 'OptMultipleDepth', 'OptMultipleCP', 'GreedyMultipleDepth','OptMultipleDepthCP']:
+        elif args.model in ['OptMultiple', 'OptMultipleDepth', 'OptMultipleCP', 'GreedyMultipleDepth','OptMultipleDepthCP', 'GreedyMultiple']:
             num_existing_L_grocery.append(num_cur_grocery)
             num_existing_L_restaurant.append(num_cur_restaurant)
             num_existing_L_school.append(num_cur_school)
@@ -336,7 +348,7 @@ if __name__ == "__main__":
 
         # save results summary
 
-        if args.model in ['OptSingle', 'OptSingleDepth','OptSingleCP','OptSingleDepthCP']:
+        if args.model in ['OptSingle', 'OptSingleDepth','OptSingleCP','OptSingleDepthCP','GreedySingle','GreedySingleDepth']:
             results_D = {
                 "nia_id": nia_id_L,
                 "nia_name": nia_name_L,
@@ -351,7 +363,7 @@ if __name__ == "__main__":
             }
             summary_df_filename = os.path.join(summary_folder, "NIA_%s_%s_%s.csv" % (nia_id, k_name, args.amenity))
 
-        elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth','OptMultipleDepthCP']:
+        elif args.model in ['OptMultiple', 'OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth','OptMultipleDepthCP', 'GreedyMultiple']:
             results_D = {
                 "nia_id": nia_id_L,
                 "nia_name": nia_name_L,
