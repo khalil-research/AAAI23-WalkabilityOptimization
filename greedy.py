@@ -229,7 +229,7 @@ def greedy_single_depth(df_from,df_to,amenity_df, SP_matrix,k):
         tot_choice = d_amenity.shape[1]
         # pad with 2400 for non-existing choices
         d_amenity = np.pad(d_amenity, ((0, 0), (0, 10 - d_amenity.shape[1])), constant_values=L_a[-2])
-    if d_amenity.shape[1] > 10:
+    if d_amenity.shape[1] >= 10:
         tot_choice = 10
         # take first 10 choices
         d_amenity = d_amenity[:, :10]
