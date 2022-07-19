@@ -637,3 +637,80 @@ def greedy_multiple(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matri
     d_school = np.amin(mat_school, axis=1)
 
     return score_obj, [np.mean(d_grocery), np.mean(d_res), np.mean(d_school)], (et - st), None, allocated_D, None, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], None
+
+
+
+def get_nearest(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix):
+    '''multiple amenity case, with depth of choice'''
+
+    if len(df_from)>0:
+        df_from = df_from[['geometry', 'node_ids']]
+    if len(df_to)>0:
+        df_to = df_to[['geometry', 'node_ids']]
+
+    # grouping
+    groups_to=df_to.groupby('node_ids').groups # keys are node id, values are indices
+    group_values_to=list(groups_to.values())
+    num_allocation = len(group_values_to)
+
+    # initial capacity
+    capacity_init = [len(item) for item in group_values_to]
+
+    groups_from = df_from.groupby('node_ids').groups
+    group_values_from = list(groups_from.values())
+    num_residents = len(group_values_from)
+
+    num_cur_grocery = len(grocery_df)
+    num_cur_restaurant = len(restaurant_df)
+    num_cur_school = len(school_df)
+
+    cur_index=num_allocation
+    range_grocery_existing = list(range(cur_index, cur_index + num_cur_grocery))
+    range_grocery_dest_list = list(range(num_allocation)) + range_grocery_existing
+    cur_index+=num_cur_grocery
+    range_restaurant_existing = list(range(cur_index, cur_index + num_cur_restaurant))
+    range_restaurant_dest_list = list(range(num_allocation)) + range_restaurant_existing
+    cur_index+=num_cur_restaurant
+    range_school_existing = list(range(cur_index, cur_index + num_cur_school))
+    range_school_dest_list = list(range(num_allocation)) + range_school_existing
+
+    # retrieve distances
+    d = {(i, j): SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], df_to.iloc[group_values_to[j][0]]["node_ids"]] for i, j in list(product(range(num_residents), range(num_allocation)))}
+
+    for i in range(num_residents):
+        start_id = num_allocation
+        for amenity_df in [grocery_df, restaurant_df, school_df]:
+            for inst_row in range(len(amenity_df)):
+                cur_id = start_id + inst_row
+                d[(i, cur_id)] = SP_matrix[df_from.iloc[group_values_from[i][0]]["node_ids"], amenity_df.iloc[inst_row]["node_ids"]]
+            start_id += len(amenity_df)
+
+    capacity = copy.deepcopy(capacity_init)
+
+    st = time.time()
+
+    # current score
+    # resident and cur amenity matrix
+    mat_grocery = np.array([[d[(i, j)] for j in range_grocery_existing] for i in range(num_residents)])
+    mat_res = np.array([[d[(i, j)] for j in range_restaurant_existing] for i in range(num_residents)])
+    ind = np.argsort(mat_res, axis=1)
+    d_res = np.take_along_axis(mat_res, ind, axis=1)
+    if d_res.shape[1] < 10:
+        # pad with 2400 for non-existing choices
+        d_res = np.pad(d_res, ((0, 0), (0, 10-d_res.shape[1])), constant_values=L_a[-2])
+    if d_res.shape[1] > 10:
+        # take first 10 choices
+        d_res=d_res[:,:10]
+    mat_school = np.array([[d[(i, j)] for j in range_school_existing] for i in range(num_residents)])
+    if mat_grocery.shape[1]>0:
+        d_grocery = np.amin(mat_grocery, axis=1)
+    else:
+        d_grocery = np.full((num_residents, ), L_a[-2])
+    if mat_school.shape[1] > 0:
+        d_school = np.amin(mat_school, axis=1)
+    else:
+        d_school = np.full((num_residents, ), L_a[-2])
+
+    assigned_D={"dist_grocery":d_grocery,"dist_school":d_school,"0_dist_restaurant":d_res[:,0],"1_dist_restaurant":d_res[:,1]}
+
+    return assigned_D

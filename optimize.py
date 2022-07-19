@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 import numpy as np
 import pickle
-from greedy import greedy_multiple_depth, greedy_multiple, greedy_single, greedy_single_depth
+from greedy import greedy_multiple_depth, greedy_multiple, greedy_single, greedy_single_depth, get_nearest
 
 parser = argparse.ArgumentParser(description='Enter model name:grb_PWL,scratch')
 parser.add_argument("model", help="model", type=str)
@@ -234,6 +234,8 @@ if __name__ == "__main__":
 
                 solving_time=None
                 status=None
+
+                assigned_D = get_nearest(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D)
 
 
         else:
