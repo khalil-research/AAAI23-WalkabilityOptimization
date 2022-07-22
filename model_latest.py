@@ -1253,7 +1253,7 @@ def opt_multiple_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matri
     return obj_value, [np.mean(assigned_D["dist_grocery"]), np.mean(assigned_D["dist_restaurant"]), np.mean(assigned_D["dist_school"])],   msol.get_solve_time(),  msol, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school],  msol.solve_status
 
 
-def opt_single_depth_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path, solver_path,EPS=0.5):
+def opt_single_depth_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sava_path, solver_path, bp, EPS=0.5):
     '''single amenity case, with consideration of depth of choice. For amenity=restaurant specifically'''
 
     if len(df_from)>0:
@@ -1354,6 +1354,10 @@ def opt_single_depth_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sa
     # # objective
     model.add(model.maximize(model.sum(f[i] for i in range(num_residents))/num_residents))
 
+    if bp:
+        print("setting search phase")
+        model.set_search_phases([search_phase(y.values()), search_phase(x.values())])
+
     msol = model.solve(execfile=solver_path, TimeLimit=time_limit, Workers=threads)
     obj_value = msol.get_objective_values()[0][0]
 
@@ -1418,7 +1422,7 @@ def opt_single_depth_CP(df_from,df_to,amenity_df, SP_matrix,k,threads,results_sa
     return obj_value, dist_obj, msol.get_solve_time(), msol, allocated_D, assigned_D, num_residents, num_allocation, num_cur, msol.solve_status
 
 
-def opt_multiple_depth_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, k_array, threads, results_sava_path, solver_path,EPS=0.5):
+def opt_multiple_depth_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, k_array, threads, results_sava_path, solver_path, bp, EPS=0.5):
     '''multiple amenity case, with depth of choice'''
 
     if len(df_from)>0:
@@ -1429,8 +1433,8 @@ def opt_multiple_depth_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP
     model = CpoModel(name="max_score")
 
     # grouping
-    groups_to=df_to.groupby('node_ids').groups # keys are node id, values are indices
-    group_values_to=list(groups_to.values())
+    groups_to = df_to.groupby('node_ids').groups # keys are node id, values are indices
+    group_values_to = list(groups_to.values())
     num_allocation = len(group_values_to)
     capacity = [len(item) for item in group_values_to]
 
@@ -1552,6 +1556,10 @@ def opt_multiple_depth_CP(df_from,df_to,grocery_df, restaurant_df, school_df, SP
 
     # # objective
     model.add(model.maximize(model.sum(f[i] for i in range(num_residents)) / num_residents))
+
+    if bp:
+        print("setting search phase")
+        model.set_search_phases([search_phase(y.values()), search_phase(x.values())])
 
     msol = model.solve(execfile=solver_path, TimeLimit=time_limit, Workers=threads)
     obj_value = msol.get_objective_values()[0][0]

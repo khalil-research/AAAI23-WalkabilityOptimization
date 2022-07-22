@@ -1,11 +1,14 @@
 import glob
 import pandas as pd
 import os
-from map_utils import ct_nia_mapping
+from map_utils import ct_nia_mapping,get_nias
+from graph_utils import pednet_NIA
 import matplotlib.pyplot as plt
 import numpy as np
 import json
+import geopandas as gpd
 from model_latest import opt_single, cur_assignment_single, opt_multiple, opt_single_depth, cur_assignment_single_depth, weights_array, dist_to_score, L_a, L_f_a, weights_array_multi, choice_weights
+
 
 def shifted_geo_mean(L, s=1):
     a = np.array(L)
@@ -925,66 +928,182 @@ def opt_feas_multiple(results_folder, processed_folder):
 
     return output_df
 
+def quality_table(results_folder, processed_folder):
+    group_thres = [0, 200, 400, 600, 2000]
+    groups_name = ['1', '2', '3', '4']
+    models_name = ["mip","cp","greedy"]
+    models_save_name_no_depth = ["OptMultiple_False_0","OptMultipleCP_False_0","GreedyMultiple_False_0"]
+    models_save_name_depth = ["OptMultipleDepth_False_0", "OptMultipleDepthCP_False_0","GreedyMultipleDepth_False_0"]
 
-def hist_distances(data_root, results_folder,processed_folder):
+    num_nia = []
+    num_ins = []
+
+    L_group = []
+    L_model = []
+
+    L_no_depth_mre = []
+    L_no_depth_opt = []
+    L_no_depth_feas = []
+
+    L_depth_mre = []
+    L_depth_opt = []
+    L_depth_feas = []
+
+    summary_filename = os.path.join(processed_folder, "nia_summary.csv")
+    summary_df = pd.read_csv(summary_filename)
+
+    for p in range(len(group_thres) - 1):
+        group_df = summary_df[(summary_df["m+n"] >= group_thres[p]) & (summary_df["m+n"] < group_thres[p + 1])]
+        num_nia.append(len(group_df))
+        num_ins.append(len(group_df) * 9)
+    output_D = {"group": groups_name, "num_nia": num_nia, "num_ins":num_ins}
+    output_df = pd.DataFrame(output_D)
+    output_df.to_csv(os.path.join(processed_folder,"groups_summary.csv"), index=False)
+
+    # no depth
+    all_obj_df = pd.read_csv(os.path.join(processed_folder, "multiple.csv"), index_col=None, header=0)
+    for p in range(len(group_thres) - 1):
+        group_df = summary_df[(summary_df["m+n"] >= group_thres[p]) & (summary_df["m+n"] < group_thres[p + 1])]
+        obj_group_df = all_obj_df[all_obj_df["nia"].isin(group_df['nia'])]
+
+        for m in range(len(models_name)):
+            # group column
+            L_group.append(groups_name[p])
+            # models column
+            L_model.append(models_name[m])
+            # MRE column, no depth
+            L_no_depth_mre.append(100 * np.mean((obj_group_df['best'] - obj_group_df[models_name[m]]) / obj_group_df['best']))
+
+            results_df = get_results_df(results_folder, models_save_name_no_depth[m])
+            results_df = results_df[(results_df["k_L_grocery"] > 0) & (results_df["k_L_restaurant"] > 0) & (results_df["k_L_school"] > 0)]
+            results_df["m+n"] = results_df["num_res"] + results_df["num_parking"]
+            results_group_df = results_df[(results_df["m+n"] >= group_thres[p]) & (results_df["m+n"] < group_thres[p + 1])]
+            num_feas = len(results_group_df)
+            if "CP" in models_save_name_no_depth[m]:
+                num_opt = len(results_group_df[results_group_df["model_status"] == "Optimal"])
+            elif "Greedy" in models_save_name_no_depth[m]:
+                #num_opt = (obj_group_df['greedy']==obj_group_df['best']).sum()
+                num_opt = "N/A"
+            else:
+                num_opt = len(results_group_df[results_group_df["model_status"].astype(int) == 2])
+
+            # opt column, no depth
+            L_no_depth_opt.append(num_opt)
+            # feas column, no depth
+            L_no_depth_feas.append(num_feas)
+
+    # depth of choice
+    all_obj_df = pd.read_csv(os.path.join(processed_folder, "multiple_depth.csv"), index_col=None, header=0)
+    for p in range(len(group_thres) - 1):
+        group_df = summary_df[(summary_df["m+n"] >= group_thres[p]) & (summary_df["m+n"] < group_thres[p + 1])]
+        obj_group_df = all_obj_df[all_obj_df["nia"].isin(group_df['nia'])]
+        for m in range(len(models_name)):
+            # MRE column, depth
+            L_depth_mre.append(100 * np.mean((obj_group_df['best'] - obj_group_df[models_name[m]]) / obj_group_df['best']))
+
+            results_df = get_results_df(results_folder, models_save_name_depth[m])
+            results_df = results_df[(results_df["k_L_grocery"] > 0) & (results_df["k_L_restaurant"] > 0) & (results_df["k_L_school"] > 0)]
+            results_df["m+n"] = results_df["num_res"] + results_df["num_parking"]
+            results_group_df = results_df[(results_df["m+n"] >= group_thres[p]) & (results_df["m+n"] < group_thres[p + 1])]
+            num_feas = len(results_group_df)
+            if "CP" in models_save_name_no_depth[m]:
+                num_opt = len(results_group_df[results_group_df["model_status"] == "Optimal"])
+            elif "Greedy" in models_save_name_no_depth[m]:
+                #num_opt = (obj_group_df['greedy']==obj_group_df['best']).sum()
+                num_opt = "N/A"
+            else:
+                num_opt = len(results_group_df[results_group_df["model_status"].astype(int) == 2])
+
+            # opt column, depth
+            L_depth_opt.append(num_opt)
+            # feas column, depth
+            L_depth_feas.append(num_feas)
+
+    output_D = {"group": L_group,"method":L_model,
+                "MRE,no d": L_no_depth_mre, "feas, no d": L_no_depth_feas, "opt, no d": L_no_depth_opt,
+                "MRE,d": L_depth_mre, "feas, d": L_depth_feas, "opt, d": L_depth_opt}
+    output_df = pd.DataFrame(output_D)
+
+    # output format
+    output_df["MRE,no d"] = output_df["MRE,no d"].map('{:.4f}'.format)
+    output_df["MRE,d"] = output_df["MRE,d"].map('{:.4f}'.format)
+    df_filename = os.path.join(processed_folder, "quality table.csv")
+    output_df.to_csv(df_filename, index=False)
+    print(output_df.to_latex(index=False))
+    return
+
+def hist_distances(data_root, results_folder,processed_folder,plot_folder):
     D_NIA = ct_nia_mapping(os.path.join(data_root, "neighbourhood-improvement-areas-wgs84/processed_TSNS 2020 NIA Census Tracts.xlsx"))
 
     # opt multiple depth
     print("multiple depth case")
-    L_nia = []
-    L_mip_obj = []
-    L_cp_obj = []
-    L_greedy_obj = []
-    L_k = []
-    L_mip_status = []
-    L_cp_status = []
+
 
     dist_grocery_before = []
     dist_res_1_before = []
     dist_res_2_before = []
+    dist_school_before = []
 
-    dist_grocery_after = []
-    dist_res_1_after = []
-    dist_res_2_after = []
+    dist_grocery_after = {}
+    dist_res_1_after = {}
+    dist_res_2_after = {}
+    dist_school_after = {}
 
-    k = 4
+    #k = 4
+    all_k = [2]
     use = 'mip'
+    for k in all_k:
+        dist_grocery_after[k] = []
+        dist_res_1_after[k] = []
+        dist_res_2_after[k] = []
+        dist_school_after[k] = []
+        for nia in list(D_NIA.keys()):
+            print("nia:", nia)
 
-    for nia in list(D_NIA.keys()):
-        print("nia:", nia)
+            filename = "assignment_NIA_%s_%s,%s,%s.csv" % (nia, k, k, k)
 
-        filename = "assignment_NIA_%s_%s,%s,%s.csv" % (nia, k, k, k)
+            if use == 'mip':
+                #  MIP
+                if os.path.exists(os.path.join(results_folder, "sol", "OptMultipleDepth_False_0", filename)):
+                    mip_df = pd.read_csv(os.path.join(results_folder, "sol", "OptMultipleDepth_False_0", filename),index_col=None, header=0)
+                    dist_grocery = mip_df["dist_grocery"]
+                    choices_dist = [mip_df[str(c) + "_dist_restaurant"] if (str(c) + "_dist_restaurant") in mip_df.columns else L_a[-2] for c in range(10)]
+                    dist_school = mip_df["dist_school"]
+                    dist_res_1 = list(mip_df["0_dist_restaurant"])
+                    dist_res_2 = list(mip_df["1_dist_restaurant"])
 
-        L_nia.append(nia)
-        if use == 'mip':
-            #  MIP
-            if os.path.exists(os.path.join(results_folder, "sol", "OptMultipleDepth_False_0", filename)):
-                mip_df = pd.read_csv(os.path.join(results_folder, "sol", "OptMultipleDepth_False_0", filename),index_col=None, header=0)
-                dist_grocery = mip_df["dist_grocery"]
-                choices_dist = [mip_df[str(c) + "_dist_restaurant"] if (str(c) + "_dist_restaurant") in mip_df.columns else L_a[-2] for c in range(10)]
-                dist_school = mip_df["dist_school"]
+                else:
+                    # if not feasible, use greedy solution
+                    if os.path.exists(os.path.join(results_folder, "sol", "GreedyMultipleDepth_False_0", filename)):
+                        greedy_df = pd.read_csv(
+                            os.path.join(results_folder, "sol", "GreedyMultipleDepth_False_0", filename),
+                            index_col=None, header=0)
+                        dist_grocery = greedy_df["dist_grocery"]
+                        dist_school = greedy_df["dist_school"]
+                        dist_res_1 = list(greedy_df["0_dist_restaurant"])
+                        dist_res_2 = list(greedy_df["1_dist_restaurant"])
+                    print("????????")
+
+                dist_grocery_after[k] += list(dist_grocery)
+                dist_school_after[k] += list(dist_school)
+                dist_res_1_after[k] += list(dist_res_1)
+                dist_res_2_after[k] += list(dist_res_2)
 
             else:
-                print("????????")
+                # CP
+                if os.path.exists(os.path.join(results_folder, "sol", "OptMultipleDepthCP_False_0", filename)):
+                    cp_df = pd.read_csv(os.path.join(results_folder, "sol", "OptMultipleDepthCP_False_0", filename), index_col=None, header=0)
+                    dist_grocery = cp_df["dist_grocery"]
+                    choices_dist = [cp_df[str(c) + "_dist_restaurant"] if (str(c) + "_dist_restaurant") in mip_df.columns else L_a[-2] for c in range(10)]
+                    dist_school = cp_df["dist_school"]
 
-            dist_grocery_after += list(dist_grocery)
-            dist_res_1_after += mip_df["0_dist_restaurant"]
-            dist_res_2_after += mip_df["1_dist_restaurant"]
+                else:
+                    print("????????")
 
-        else:
-            # CP
-            if os.path.exists(os.path.join(results_folder, "sol", "OptMultipleDepthCP_False_0", filename)):
-                cp_df = pd.read_csv(os.path.join(results_folder, "sol", "OptMultipleDepthCP_False_0", filename), index_col=None, header=0)
-                dist_grocery = cp_df["dist_grocery"]
-                choices_dist = [cp_df[str(c) + "_dist_restaurant"] if (str(c) + "_dist_restaurant") in mip_df.columns else L_a[-2] for c in range(10)]
-                dist_school = cp_df["dist_school"]
-
-            else:
-                print("????????")
-
-            dist_grocery_after += list(dist_grocery)
-            dist_res_1_after += cp_df["0_dist_restaurant"]
-            dist_res_2_after += cp_df["1_dist_restaurant"]
+                dist_grocery_after[k] += list(dist_grocery)
+                dist_school_after[k] += list(dist_school)
+                dist_res_1_after[k] += list(cp_df["0_dist_restaurant"])
+                dist_res_2_after[k] += list(cp_df["1_dist_restaurant"])
 
     k = 0
 
@@ -1003,12 +1122,124 @@ def hist_distances(data_root, results_folder,processed_folder):
             print("????????")
 
         dist_grocery_before += list(dist_grocery)
-        dist_res_1_before += greedy_df["0_dist_restaurant"]
-        dist_res_2_before += greedy_df["1_dist_restaurant"]
+        dist_school_before += list(dist_school)
+        dist_res_1_before += list(greedy_df["0_dist_restaurant"])
+        dist_res_2_before += list(greedy_df["1_dist_restaurant"])
 
-    # make histogram with the before and after arrays
+    speed = 1.2
+    transp = 0.5
+    colors = ['blue','orange','green']
+
+    bins = np.linspace(0.0, 70.0, 100)
+
+    time_grocery_before = (np.array(dist_grocery_before) /speed) / 60
+    time_res_1_before = (np.array(dist_res_1_before) / speed) / 60
+    time_res_2_before = (np.array(dist_res_2_before) / speed) / 60
+    time_school_before = (np.array(dist_school_before) / speed) / 60
+
+    time_grocery_after = {}
+    time_res_1_after = {}
+    time_res_2_after = {}
+    time_school_after = {}
+
+    for k in all_k:
+        time_grocery_after[k] = (np.array(dist_grocery_after[k]) / speed) / 60
+        time_res_1_after[k] = (np.array(dist_res_1_after[k]) / speed) / 60
+        time_res_2_after[k] = (np.array(dist_res_2_after[k]) / speed) / 60
+        time_school_after[k] = (np.array(dist_school_after[k]) / speed) / 60
+
+    L_all_before = [time_grocery_before, time_res_1_before, time_res_2_before, time_school_before]
+    L_all_after = [[time_grocery_after[k] for k in all_k], [time_res_1_after[k] for k in all_k], [time_res_2_after[k] for k in all_k], [time_school_after[k] for k in all_k]]
+    L_all_save_names = ["nearest grocery.png","nearest 1 res.png","nearest 2 res.png","nearest school.png"]
+    L_all_type_names = ["grocery", "res1", "res2", "school"]
 
 
+    for ind in range(len(L_all_type_names)):
+        print(L_all_type_names[ind])
+        plt.clf()
+        arr_before = L_all_before[ind]
+        print("max value",L_all_type_names[ind],"before",np.max(arr_before))
+        bins = np.linspace(0.0, int(np.max(arr_before)), 100)
+        plt.hist(arr_before, bins, alpha=transp, label='before')
+        plt.legend(loc='upper right')
+        plt.axvline(arr_before.mean(), color='blue', linestyle='dashed', linewidth=1)
+        min_ylim, max_ylim = plt.ylim()
+        plt.text(arr_before.mean() * 1.1, max_ylim * 0.8, 'Mean: {:.2f}'.format(arr_before.mean()))
+        plt.axvline(np.quantile(arr_before, 0.75), color='blue', linestyle='dotted', linewidth=1)
+        plt.text(np.quantile(arr_before, 0.75) * 1.1, max_ylim * 0.9, '75%: {:.2f}'.format(np.quantile(arr_before, 0.75)))
+
+        for ind2 in range(len(all_k)):
+            print(k)
+            arr_after = L_all_after[ind][ind2]
+            print("max value", L_all_type_names[ind], k, np.max(arr_after))
+
+            plt.hist(arr_after, bins,alpha=transp, label='after')
+            plt.axvline(arr_after.mean(), color=colors[ind2+1], linestyle='dashed', linewidth=1)
+            plt.text(arr_after.mean() * 1.1, max_ylim * 0.9, 'Mean: {:.2f}'.format(arr_after.mean()))
+
+            plt.axvline(np.quantile(arr_after, 0.75), color=colors[ind2 + 1], linestyle='dotted', linewidth=1)
+            plt.text(np.quantile(arr_after, 0.75) * 1.1, max_ylim * 0.9, '75%: {:.2f}'.format(np.quantile(arr_after, 0.75)))
+
+        plt.savefig(os.path.join(plot_folder,"final_eval", L_all_save_names[ind]))
+
+
+    return
+
+def nia_avg_walking_time(data_root,plot_folder,results_folder,preprocessing_folder):
+
+    '''plot code reference: https://github.com/gcc-dav-official-github/dav_cot_walkability/blob/master/code/TTC%20Walkability%20Tutorial.ipynb'''
+
+    nia_shape = get_nias(data_root)
+
+    # reading pednet file
+    # pednet_path = os.path.join(data_root, "pednet.zip")
+    # pednet = gpd.read_file(pednet_path)
+
+    nia_shape["center"] = nia_shape["geometry"].centroid
+    nia_points = nia_shape.copy()
+    nia_points.set_geometry("center", inplace=True)
+
+    speed = 1.2
+    dist_grocery=[]
+    dist_res1=[]
+    dist_res2=[]
+    dist_school=[]
+    walk_obj=[]
+
+    for nia in [int(item) for item in nia_shape["area_s_cd"]]:
+
+        #pednet_nia = pednet_NIA(pednet, nia, preprocessing_folder)
+
+        print("nia:", nia)
+        k=0
+        filename = "assignment_NIA_%s_%s,%s,%s.csv" % (nia, k, k, k)
+        if os.path.exists(os.path.join(results_folder, "sol", "GreedyMultipleDepth_False_0", filename)):
+            greedy_df = pd.read_csv(os.path.join(results_folder, "sol", "GreedyMultipleDepth_False_0", filename),
+                                    index_col=None, header=0)
+            greedy_df_result = pd.read_csv(os.path.join(results_folder, "summary", "GreedyMultipleDepth_False_0", "NIA_%s_%s,%s,%s.csv" % (nia, k, k, k)),
+                                    index_col=None, header=0)
+        else:
+            print("????????")
+        dist_grocery.append(np.mean(greedy_df["dist_grocery"]))
+        dist_res1.append(np.mean(greedy_df["0_dist_restaurant"]))
+        dist_res2.append(np.mean(greedy_df["1_dist_restaurant"]))
+        dist_school.append(np.mean(greedy_df["dist_school"]))
+        walk_obj.append(greedy_df_result["obj"])
+
+    nia_shape["dist_grocery"] = (np.array(dist_grocery)/speed)/60
+    nia_shape["dist_res1"] = (np.array(dist_res1)/speed)/60
+    nia_shape["dist_res2"] = (np.array(dist_res2)/speed)/60
+    nia_shape["dist_school"] = (np.array(dist_school)/speed)/60
+    nia_shape["walk_obj"] = np.array(walk_obj)
+
+    nia_shape.plot(column='walk_obj',legend=True, legend_kwds={'shrink': 0.5})
+    texts = []
+    for x, y, label, id in zip(nia_points.geometry.x, nia_points.geometry.y, nia_points["area_name"],nia_points["area_s_cd"]):
+        # can instead plot id too?
+        texts.append(plt.text(x-0.01, y, label[:-5], fontsize=7, bbox=dict(boxstyle='square,pad=0.1', fc='white', ec='none')))
+    #plt.show()
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_folder,"final_eval", "cur_score.pdf"))
     return
 
 
@@ -1019,6 +1250,7 @@ if __name__ == "__main__":
     plot_folder = "results_plot"
     data_root = "/Users/weimin/Documents/MASC/walkability_data"
     processed_folder= "processed_results"
+    preprocessing_folder = "./preprocessing"
     # for model_name in ["OptSingleCP_False_0"]:
     #     if model_name in ["OptSingle_False_0","OptSingleCP_False_0"]:
     #         amenity_L=["restaurant", "grocery", "school"]
@@ -1039,7 +1271,7 @@ if __name__ == "__main__":
     # plot_time_vs_size_multiple(results_folder, os.path.join(plot_folder, "time"), ["OptMultipleDepth_False_0", "OptMultipleDepthCP_False_0","GreedyMultipleDepth_False_0"],
     #                           ["MILP", "CP", "Greedy"], "Multiple amenity case with depth of choice: shifted geo mean - input size")
 
-    all_instances_obj(data_root, results_folder, "processed_results")
+    #all_instances_obj(data_root, results_folder, "processed_results")
     # # plot quality
     # plot_quality("processed_results")
 
@@ -1053,7 +1285,16 @@ if __name__ == "__main__":
     #                             ["OptMultipleDepth_False_0", "OptMultipleDepthCP_False_0","GreedyMultipleDepth_False_0"],
     #                             ["MILP", "CP", "Greedy"], "boxplot multiple depth")
     #
-    # # quality table
-    quality_table_by_k_multiple(processed_folder)
-    quality_table_by_group_multiple(processed_folder)
+    # # temp quality measures
+    # quality_table_by_k_multiple(processed_folder)
+    # quality_table_by_group_multiple(processed_folder)
     # opt_feas_multiple(results_folder, processed_folder)
+
+    # final quality table
+    # quality_table(results_folder, processed_folder)
+
+    # Make histogram
+    # hist_distances(data_root, results_folder, processed_folder, plot_folder)
+
+    # draw nia
+    nia_avg_walking_time(data_root,plot_folder,results_folder,preprocessing_folder)

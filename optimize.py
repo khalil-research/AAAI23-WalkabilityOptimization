@@ -138,7 +138,7 @@ if __name__ == "__main__":
                             residentials_df, parking_df, amenity_df, D, args.k)
                 else:
                     score_obj, dist_obj, solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, num_existing, status = opt_single_depth_CP(
-                        residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, solver_path,EPS=0.5)
+                        residentials_df, parking_df, amenity_df, D, args.k, threads, log_file_name, solver_path,args.bp, EPS=0.5)
             else:
                 log_file_name = os.path.join(sol_folder, "log_NIA_%s_%s_%s.txt" % (nia_id, 0, args.amenity))
                 score_obj, dist_obj, solving_time, m, assigned_D, num_residents, num_existing, status = cur_assignment_single_depth(residentials_df,amenity_df, D,args.bp, args.focus,EPS=0.5)
@@ -200,7 +200,7 @@ if __name__ == "__main__":
                             = greedy_multiple_depth(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array)
                 else:
                     score_obj, [dist_grocery, dist_restaurant, dist_school], solving_time, m, allocated_D, assigned_D, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], status \
-                        = opt_multiple_depth_CP(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array, threads, log_file_name, solver_path, EPS=0.5)
+                        = opt_multiple_depth_CP(residentials_df, parking_df, grocery_df, restaurant_df, school_df, D, k_array, threads, log_file_name, solver_path, args.bp, EPS=0.5)
             else:
                 multiple_dist = []
                 # grocery
