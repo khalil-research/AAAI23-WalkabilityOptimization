@@ -22,19 +22,19 @@ def more_data(col,row,id):
     base2 = 4835000
     # 4,3
 
-    p1 = Point((base1, base2))
-    p2 = Point((base1, base2 + row*10000))
+    p1 = Point((base1+(col-1)*10000, base2+(row-1)*10000))
+    p2 = Point((base1+(col-1)*10000, base2 + row*10000))
     p3 = Point((base1 + col*10000, base2 + row*10000))
-    p4 = Point((base1 + col*10000,  base2))
+    p4 = Point((base1 + col*10000,  base2+(row-1)*10000))
     pol = Polygon([p1, p2, p3, p4])
     pednet_nia = pednet[pednet['geometry'].centroid.within(pol)]
 
 
     transformer = Transformer.from_crs(2019, 4326)
-    p1 = (transformer.transform(base1, base2))
-    p2 = (transformer.transform(base1, base2 + 10000))
-    p3 = (transformer.transform(base1 + 10000, base2 + 10000))
-    p4 = (transformer.transform(base1 + 10000, base2))
+    p1 = (transformer.transform(base1+(col-1)*10000, base2+(row-1)*10000))
+    p2 = (transformer.transform(base1+(col-1)*10000, base2 + row*10000))
+    p3 = (transformer.transform(base1 + col*10000, base2 + row*10000))
+    p4 = (transformer.transform(base1 + col*10000,  base2+(row-1)*10000))
     p1 = Point(p1[1],p1[0])
     p2 = Point(p2[1],p2[0])
     p3 = Point(p3[1],p3[0])
