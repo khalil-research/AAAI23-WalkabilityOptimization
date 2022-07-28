@@ -130,6 +130,7 @@ def opt_job_extra():
 
     #'OptMultiple', 'OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth','OptMultipleDepthCP', 'GreedyMultiple'
     all_models = ['OptMultiple','OptMultipleCP','GreedyMultiple'] #,'OptMultiple'
+    all_models = ['OptMultiple', 'OptMultipleDepth','OptMultipleCP','GreedyMultipleDepth','OptMultipleDepthCP', 'GreedyMultiple']
 
 
     counter=0
@@ -139,35 +140,36 @@ def opt_job_extra():
             nia =all_ids[n]
             col = cols[n]
             row = rows[n]
-            for k in range(10):
-                with open('{}/{}_{}.sh'.format(folder,model,counter), 'w') as the_file:
-                    the_file.write('#!/bin/bash\n')
-                    the_file.write('#SBATCH --account={}\n'.format(account))
-                    the_file.write('#SBATCH --output=walk_slurms/{}_nia{}_{}.out'.format(model,nia,k))
-                    # the_file.write('#SBATCH --mail-user=cheryl.huang@mail.utoronto.ca\n')
-                    # the_file.write('#SBATCH --mail-type=ALL\n')
-                    the_file.write('\n')
-                    the_file.write('module load python/3.7\n')
-                    the_file.write('module load python scipy-stack\n')
+            if nia in [1000,1003,1006,1009,1010]:
+                for k in range(10):
+                    with open('{}/{}_{}.sh'.format(folder,"extra",counter), 'w') as the_file:
+                        the_file.write('#!/bin/bash\n')
+                        the_file.write('#SBATCH --account={}\n'.format(account))
+                        the_file.write('#SBATCH --output=walk_slurms/{}_nia{}_{}.out'.format(model,nia,k))
+                        # the_file.write('#SBATCH --mail-user=cheryl.huang@mail.utoronto.ca\n')
+                        # the_file.write('#SBATCH --mail-type=ALL\n')
+                        the_file.write('\n')
+                        the_file.write('module load python/3.7\n')
+                        the_file.write('module load python scipy-stack\n')
 
-                    the_file.write('module load gurobi/9.5.0 python/3.7\n')
-                    the_file.write('source cpo/bin/activate\n')
-                    the_file.write('export LD_LIBRARY_PATH=/home/huangw98/build/lib:$LD_LIBRARY_PATH\n')
-                    the_file.write('export PYTHONPATH=$PYTHONPATH:/home/huangw98/modulefiles/lib/python/\n')
-                    the_file.write('export LD_LIBRARY_PATH=/home/huangw98/build2/lib:$LD_LIBRARY_PATH\n')
-                    the_file.write('cd /home/huangw98/projects/rrg-khalile2/huangw98/walkability\n')
-                    #the_file.write('cd /home/huangw98/projects/rrg-khalile2/huangw98/walkability\n')
-                    #the_file.write('cd /home/huangw98/scratch/walkability\n')
-                    the_file.write('python optimize_extra.py {} {} {} {} --cc True --k_array {},{},{}\n'.format(model,nia,col,row,k,k,k))
-                    #the_file.write('python optimize.py {} {} --cc True --k {} --amenity {} --bp True\n'.format(model, nia, k, amenity))
-                    #the_file.write('python optimize.py {} {} --cc True --k {} --amenity {} \n'.format(model, nia, k, amenity))
-                    the_file.write('deactivate')
-                counter+=1
+                        the_file.write('module load gurobi/9.5.0 python/3.7\n')
+                        the_file.write('source cpo/bin/activate\n')
+                        the_file.write('export LD_LIBRARY_PATH=/home/huangw98/build/lib:$LD_LIBRARY_PATH\n')
+                        the_file.write('export PYTHONPATH=$PYTHONPATH:/home/huangw98/modulefiles/lib/python/\n')
+                        the_file.write('export LD_LIBRARY_PATH=/home/huangw98/build2/lib:$LD_LIBRARY_PATH\n')
+                        the_file.write('cd /home/huangw98/projects/rrg-khalile2/huangw98/walkability\n')
+                        #the_file.write('cd /home/huangw98/projects/rrg-khalile2/huangw98/walkability\n')
+                        #the_file.write('cd /home/huangw98/scratch/walkability\n')
+                        the_file.write('python optimize_extra.py {} {} {} {} --cc True --k_array {},{},{}\n'.format(model,nia,col,row,k,k,k))
+                        #the_file.write('python optimize.py {} {} --cc True --k {} --amenity {} --bp True\n'.format(model, nia, k, amenity))
+                        #the_file.write('python optimize.py {} {} --cc True --k {} --amenity {} \n'.format(model, nia, k, amenity))
+                        the_file.write('deactivate')
+                    counter+=1
 
     return
 
 if __name__ == "__main__":
-    folder = 'more_no_d'
+    folder = 'extra_jobs'
     #account = 'rrg-khalile2'
     account = 'def-khalile2'
     Path(folder).mkdir(parents=True, exist_ok=True)

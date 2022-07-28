@@ -86,6 +86,9 @@ def centroid(item, value):
     elif isinstance(item,shapely.geometry.point.Point):
         x = item.x
         y = item.y
+    else:
+        x = item.centroid.x
+        y = item.centroid.y
     if value=="x":
         return x
     if value == "y":
