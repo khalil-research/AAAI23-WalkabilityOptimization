@@ -34,7 +34,7 @@ sp_save_path = os.path.join(preprocessing_folder, 'saved_SPs')
 nia=43
 k_name = 2
 
-myhatch = 'O'
+myhatch = 'o'
 myscale = 4
 
 
@@ -85,17 +85,17 @@ if __name__ == "__main__":
     allocated_grocery = parking_df.iloc[sol["allocate_row_id_grocery"]]
     allocated_grocery2=allocated_grocery.copy()
     allocated_grocery2["geometry"] = allocated_grocery["geometry"].scale(myscale,myscale, origin='center')
-    allocated_grocery2.plot(ax=ax, edgecolor='black',facecolor='red', hatch=myhatch,markersize=80, label='Allocated grocery')
+    allocated_grocery2.plot(ax=ax, edgecolor='black',facecolor='red', hatch=myhatch,markersize=80, label='Allocated grocery', zorder=100)
 
     allocated_res = parking_df.iloc[sol["allocate_row_id_restaurant"]]
     allocated_res2 = allocated_res.copy()
     allocated_res2["geometry"] = allocated_res2["geometry"].scale(myscale, myscale, origin='center')
-    allocated_res2.plot(ax=ax,  edgecolor='black',facecolor='orange', hatch=myhatch, markersize=80, label='Allocated restaurant')
+    allocated_res2.plot(ax=ax,  edgecolor='black',facecolor='orange', hatch=myhatch, markersize=80, label='Allocated restaurant', zorder=101)
 
     allocated_school = parking_df.iloc[sol["allocate_row_id_school"]]
     allocated_school2 = allocated_school.copy()
     allocated_school2["geometry"] = allocated_school2["geometry"].scale(myscale, myscale, origin='center')
-    allocated_school2.plot(ax=ax,  edgecolor='black',facecolor='yellow', hatch=myhatch, markersize=80, label='Allocated school')
+    allocated_school2.plot(ax=ax,  edgecolor='black',facecolor='yellow', hatch=myhatch, markersize=80, label='Allocated school', zorder=102)
 
     green_patch = mpatches.Patch(color='green', label='Residential location')
     gray_patch = mpatches.Patch(color='gray', label='Parking lot')
@@ -108,6 +108,7 @@ if __name__ == "__main__":
     yellow_patch2 = mpatches.Patch(facecolor='yellow',  edgecolor='black',hatch=myhatch, label='Allocated school')
 
     #last_patch = mpatches.Patch(color=colors[all_strs.index(args.amenity)], label='Existing amenity')
+    plt.rcParams['hatch.linewidth'] = 2.0
 
     plt.legend(handles=[gray_patch,green_patch,red_patch,orange_patch,yellow_patch,red_patch2,orange_patch2,yellow_patch2])
 

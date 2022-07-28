@@ -10,9 +10,11 @@ from shapely.geometry import Polygon, LineString, Point, box
 from sqlalchemy import *
 from shapely.geometry import *
 import os
+import matplotlib.pyplot as plt
 
 
-def get_nias(file_path="data/neighbourhood-improvement-areas-wgs84/NEIGHBOURHOOD_IMPROVEMENT_AREA_WGS84.shp"):
+def get_nias(data_root):
+    file_path = os.path.join(data_root,"neighbourhood-improvement-areas-wgs84/NEIGHBOURHOOD_IMPROVEMENT_AREA_WGS84.shp")
     nia = gpd.read_file(file_path)
     nia.columns = map(str.lower, nia.columns)
     nia = nia[['area_id', 'area_s_cd', 'area_name', 'geometry']]
@@ -251,7 +253,11 @@ def map_back_assign(assignments, df_from, df_to, dict):
     return assign_D
 
 if __name__ == "__main__":
-    D=ct_nia_mapping()
-    b=1
+    #D=ct_nia_mapping()
+    #b=1
+    data_root = "/Users/weimin/Documents/MASC/walkability_data"
+
+
+
 
 

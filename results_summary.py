@@ -783,8 +783,6 @@ def plot_time_by_group_multiple(results_folder, plot_folder, models, display_nam
     group_gap = 1
     model_gap = 0.2
 
-    plt.rcParams["figure.figsize"] = (4, 4)
-
     all_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
 
     data_root = "/Users/weimin/Documents/MASC/walkability_data"
@@ -843,11 +841,15 @@ def plot_time_by_group_multiple(results_folder, plot_folder, models, display_nam
     ticks = ['[0,200)', '[200,400)', '[400,600)]', '[[600,inf)]']
     plt.xticks(np.arange(0, len(ticks) * group_gap, group_gap), ticks)
 
+    plt.rcParams["figure.figsize"] = (4, 4)
+
     plt.xlabel("|M|+|N|")
-    plt.ylabel("Shifted geo mean")
+    plt.ylabel("Shifted Geometric Mean (s)")
+
+    #plt.setp(plt.gca(),ylim=(-5,))
 
     plt.title(save_name)
-    plt.savefig(os.path.join(plot_folder,  save_name))
+    plt.savefig(os.path.join(plot_folder,  save_name),bbox_inches='tight')
     return
 
 
@@ -1176,8 +1178,8 @@ def quality_table(results_folder, processed_folder):
     output_df = pd.DataFrame(output_D)
 
     # output format
-    output_df["MRE,no d"] = output_df["MRE,no d"].map('{:.4f}'.format)
-    output_df["MRE,d"] = output_df["MRE,d"].map('{:.4f}'.format)
+    output_df["MRE,no d"] = output_df["MRE,no d"].map('{:.2f}'.format)
+    output_df["MRE,d"] = output_df["MRE,d"].map('{:.2f}'.format)
     df_filename = os.path.join(processed_folder, "quality table.csv")
     output_df.to_csv(df_filename, index=False)
     print(output_df.to_latex(index=False))
@@ -1434,12 +1436,14 @@ def avg_obj_vs_k_multi(results_folder, plot_folder):
     L_grocery = []
     L_res_0 = []
     L_res_1 = []
+    L_res_2 = []
     L_school = []
     L_obj = []
     for k in range(10):
         L_grocery_temp = []
         L_res_0_temp = []
         L_res_1_temp = []
+        L_res_2_temp = []
         L_school_temp = []
         L_obj_temp = []
         for nia in list(D_NIA.keys()):
@@ -1456,6 +1460,7 @@ def avg_obj_vs_k_multi(results_folder, plot_folder):
                     L_grocery_temp.append(df["dist_obj_L_grocery"])
                 L_res_0_temp.append([L[0] for L in [json.loads(x) for x in df["dist_obj_L_restaurant"]]])
                 L_res_1_temp.append([L[1] for L in [json.loads(x) for x in df["dist_obj_L_restaurant"]]])
+                L_res_2_temp.append([L[1] for L in [json.loads(x) for x in df["dist_obj_L_restaurant"]]])
                 L_school_temp.append(df["dist_obj_L_school"])
                 L_obj_temp.append(df["obj"])
             elif (k>0) and (not os.path.exists(os.path.join(results_folder, "summary", "OptMultipleDepth_False_0", filename))):
@@ -1463,6 +1468,7 @@ def avg_obj_vs_k_multi(results_folder, plot_folder):
                 L_grocery_temp.append(df["dist_obj_L_grocery"])
                 L_res_0_temp.append([L[0] for L in [json.loads(x) for x in df["dist_obj_L_restaurant"]]])
                 L_res_1_temp.append([L[1] for L in [json.loads(x) for x in df["dist_obj_L_restaurant"]]])
+                L_res_1_temp.append([L[2] for L in [json.loads(x) for x in df["dist_obj_L_restaurant"]]])
                 L_school_temp.append(df["dist_obj_L_school"])
                 L_obj_temp.append(df["obj"])
             else:
@@ -1470,6 +1476,7 @@ def avg_obj_vs_k_multi(results_folder, plot_folder):
         L_grocery.append(np.mean(L_grocery_temp))
         L_res_0.append(np.mean(L_res_0_temp))
         L_res_1.append(np.mean(L_res_1_temp))
+        L_res_2.append(np.mean(L_res_2_temp))
         L_school.append(np.mean(L_school_temp))
         L_obj.append(np.mean(L_obj_temp))
         L_k.append(k)
@@ -1479,19 +1486,21 @@ def avg_obj_vs_k_multi(results_folder, plot_folder):
     ax1.set_ylabel('dist (m)', color='black')
     ax1.tick_params(axis='y', labelcolor='black')
 
-    ax1.plot(L_k,L_grocery , label="grocery",marker="^")
-    ax1.plot(L_k,L_res_0 , label="res1",marker="^")
-    ax1.plot(L_k, L_school, label="school",marker="^")
-    ax1.plot(L_k, L_res_1, label="res2",marker="^")
+    ax1.plot(L_k,L_grocery , label="Grocery",marker="^")
+    ax1.plot(L_k,L_res_0 , label="Restaurant (1st Nearest)",marker="^")
+    ax1.plot(L_k, L_school, label="School",marker="^")
+    ax1.plot(L_k, L_res_1, label="Restaurant (2nd Nearest)",marker="^")
+    #ax1.plot(L_k, L_res_2, label="res3", marker="^")
 
     ax2 = ax1.twinx()
     ax2.set_ylabel('score', color='purple')
+    ax2.set_ylim([50, 95])
     ax2.plot(L_k, L_obj, color='purple', label="score",linestyle="dashdot",marker="^")
     ax2.tick_params(axis='y', labelcolor='purple')
 
 
     ax1.legend(prop={'size': 15})
-    ax2.legend(prop={'size': 15})
+    ax2.legend(prop={'size': 15},loc='upper left')
     #plt.xlabel("k")
     #plt.ylabel("dist (m)")
     plt.tight_layout()
@@ -1513,7 +1522,7 @@ def avg_obj_vs_k_multi(results_folder, plot_folder):
         L_school_temp = []
         L_obj_temp = []
         for nia in list(D_NIA.keys()):
-            filename = "assignment_NIA_%s_%s,%s,%s.csv" % (nia, k, k, k)
+            filename = "NIA_%s_%s,%s,%s.csv" % (nia, k, k, k)
 
             if (os.path.exists(os.path.join(results_folder, "summary", "OptMultiple_False_0", filename))):
                 df = pd.read_csv(os.path.join(results_folder, "summary", "OptMultiple_False_0", filename), index_col=None,header=0)
@@ -1521,7 +1530,6 @@ def avg_obj_vs_k_multi(results_folder, plot_folder):
                     pass
                 else:
                     L_grocery_temp.append(df["dist_obj_L_grocery"])
-                L_grocery_temp.append(df["dist_obj_L_grocery"])
                 L_res_temp.append(df["dist_obj_L_restaurant"])
                 L_school_temp.append(df["dist_obj_L_school"])
                 L_obj_temp.append(df["obj"])
@@ -1543,17 +1551,18 @@ def avg_obj_vs_k_multi(results_folder, plot_folder):
     ax1.set_ylabel('dist (m)', color='black')
     ax1.tick_params(axis='y', labelcolor='black')
 
-    ax1.plot(L_k, L_grocery, label="grocery",marker="^")
-    ax1.plot(L_k, L_res, label="res1",marker="^")
-    ax1.plot(L_k, L_school, label="school",marker="^")
+    ax1.plot(L_k, L_grocery, label="Grocery",marker="^")
+    ax1.plot(L_k, L_res, label="Restaurant",marker="^")
+    ax1.plot(L_k, L_school, label="School",marker="^")
 
     ax2 = ax1.twinx()
     ax2.set_ylabel('score', color='purple')
+    ax2.set_ylim([50, 95])
     ax2.plot(L_k, L_obj, color='purple', label="score", linestyle="dashdot",marker="^")
     ax2.tick_params(axis='y', labelcolor='purple')
 
     ax1.legend(prop={'size': 15})
-    ax2.legend(prop={'size': 15})
+    ax2.legend(prop={'size': 15},loc='upper left')
     plt.tight_layout()
     plt.savefig(os.path.join(plot_folder, ("quality/avg_dist_vs_k_no_depth.png" )))
 
@@ -1636,7 +1645,7 @@ if __name__ == "__main__":
 
     # final quality table
     # all_instances_obj(data_root, results_folder, "processed_results")
-    # quality_table(results_folder, processed_folder)
+    quality_table(results_folder, processed_folder)
 
     # Make histogram
     # hist_distances(data_root, results_folder, processed_folder, plot_folder)
@@ -1644,4 +1653,7 @@ if __name__ == "__main__":
     # draw nia
     # nia_avg_walking_time(data_root,plot_folder,results_folder,preprocessing_folder)
 
-    avg_obj_vs_k_multi(results_folder, plot_folder)
+    # avg_obj_vs_k_multi(results_folder, plot_folder)
+
+
+    # for summarizing extra data: for nia in list(D_NIA.keys()):+new list... (make summary, calcualte all ins obj, then do quality table).can data do boxplot
