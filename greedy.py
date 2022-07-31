@@ -623,6 +623,7 @@ def greedy_multiple_lazy(df_from,df_to,grocery_df, restaurant_df, school_df, SP_
             print("current obj: ",score_obj)
             types = types[:-1]
             locs = locs[:-1]
+            delta_mat[types[-1],locs[-1]]=0
             prev_score = score_obj
         else:
             new_obj = np.zeros((len(k_array), num_allocation))
