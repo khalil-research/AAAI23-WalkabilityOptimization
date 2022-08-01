@@ -621,11 +621,12 @@ def greedy_multiple_lazy(df_from,df_to,grocery_df, restaurant_df, school_df, SP_
             capacity[locs[-1]] = capacity[locs[-1]] - 1
             print(str(L_amenity[types[-1]]),"allocated to",str(locs[-1]))
             print("current obj: ",score_obj)
+            delta_mat[types[-1], locs[-1]] = 0
             types = types[:-1]
             locs = locs[:-1]
-            delta_mat[types[-1],locs[-1]]=0
             prev_score = score_obj
         else:
+            print("re-evaluate")
             new_obj = np.zeros((len(k_array), num_allocation))
 
             for m in range(num_allocation):
