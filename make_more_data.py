@@ -22,19 +22,21 @@ def more_data(col,row,id):
     base2 = 4835000
     # 4,3
 
-    p1 = Point((base1+(col-1)*10000, base2+(row-1)*10000))
-    p2 = Point((base1+(col-1)*10000, base2 + row*10000))
-    p3 = Point((base1 + col*10000, base2 + row*10000))
-    p4 = Point((base1 + col*10000,  base2+(row-1)*10000))
+    gap=7000
+
+    p1 = Point((base1+(col-1)*gap, base2+(row-1)*gap))
+    p2 = Point((base1+(col-1)*gap, base2 + row*gap))
+    p3 = Point((base1 + col*gap, base2 + row*gap))
+    p4 = Point((base1 + col*gap,  base2+(row-1)*gap))
     pol = Polygon([p1, p2, p3, p4])
     pednet_nia = pednet[pednet['geometry'].centroid.within(pol)]
 
 
     transformer = Transformer.from_crs(2019, 4326)
-    p1 = (transformer.transform(base1+(col-1)*10000, base2+(row-1)*10000))
-    p2 = (transformer.transform(base1+(col-1)*10000, base2 + row*10000))
-    p3 = (transformer.transform(base1 + col*10000, base2 + row*10000))
-    p4 = (transformer.transform(base1 + col*10000,  base2+(row-1)*10000))
+    p1 = (transformer.transform(base1+(col-1)*gap, base2+(row-1)*gap))
+    p2 = (transformer.transform(base1+(col-1)*gap, base2 + row*gap))
+    p3 = (transformer.transform(base1 + col*gap, base2 + row*gap))
+    p4 = (transformer.transform(base1 + col*gap,  base2+(row-1)*gap))
     p1 = Point(p1[1],p1[0])
     p2 = Point(p2[1],p2[0])
     p3 = Point(p3[1],p3[0])
@@ -58,30 +60,19 @@ def more_data(col,row,id):
     # get the largest connect component
     sugbraph_index = [len(g.nodes) for g in subgraphs].index(max([len(g.nodes) for g in subgraphs]))
     G=subgraphs[sugbraph_index]
-
-    # shortest paths
-    print("SP?")
-    SP_mat=nx.floyd_warshall_numpy(G,weight='length')
-    SP_filename = "NIA_%s_prec_%s.txt" % (id, prec)
-    np.savetxt(os.path.join(sp_save_path, SP_filename), SP_mat)
-    print("saved SP!")
-
+    #
+    # # shortest paths
+    # print("SP?")
+    # SP_mat=nx.floyd_warshall_numpy(G,weight='length')
+    # SP_filename = "NIA_%s_prec_%s.txt" % (id, prec)
+    # np.savetxt(os.path.join(sp_save_path, SP_filename), SP_mat)
+    # print("saved SP!")
+    #
     # pandana net
     net_filename="NIA_%s_prec_%s.hd5" % (id, prec)
     transit_ped_net = get_pandana_net(G,net_filename)
     transit_ped_net.save_hdf5(os.path.join(net_save_path, net_filename))
 
-    #df = pd.DataFrame({'geometry': pol})
-
-    #geometry = [Point((x, y)) for x, y in zip([p1[1],p2[1],p3[1],p3[1]], [p1[0],p2[0],p3[0],p3[0]])]
-
-    #gdf = gpd.GeoDataFrame(geometry=geometry)
-
-
-
-    # gdf.set_crs(epsg=4326, inplace=True)
-    #
-    # gdf = gdf.to_crs({'init': 'epsg:4326'})
     pols = [pol2]
 
 

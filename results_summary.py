@@ -790,9 +790,10 @@ def plot_time_by_group_multiple(results_folder, plot_folder, models, display_nam
         os.path.join(data_root, "neighbourhood-improvement-areas-wgs84/processed_TSNS 2020 NIA Census Tracts.xlsx"))
     plt.clf()
 
-    group_thres = [0,200,400,600,2000]
+    group_thres = [0,200,400,600,1115]
 
     def define_box_properties(plot_name, color_code, label):
+
         for k, v in plot_name.items():
             plt.setp(plot_name.get(k), color=color_code)
 
@@ -838,18 +839,35 @@ def plot_time_by_group_multiple(results_folder, plot_folder, models, display_nam
         define_box_properties(model_plot, all_colors[i], display_name)
 
     # set the x label values
-    ticks = ['[0,200)', '[200,400)', '[400,600)]', '[[600,inf)]']
+    #ticks = ['[0,200)', '[200,400)', '[400,600)]', '[[600,inf)]']
+    ticks = ['1', '2', '3', '4']
     plt.xticks(np.arange(0, len(ticks) * group_gap, group_gap), ticks)
 
-    plt.rcParams["figure.figsize"] = (4, 4)
 
-    plt.xlabel("|M|+|N|")
-    plt.ylabel("Shifted Geometric Mean (s)")
+    #plt.xlabel("|M|+|N|")
+    plt.xlabel("Group")
+    plt.ylabel("Shifted Geo Mean (s)")
+    #plt.yticks([])
+
+
+    SMALL_SIZE = 8
+    MEDIUM_SIZE = 13
+    BIGGER_SIZE = 18
+    # if L_all_type_names[ind]=="grocery":
+    #     BIGGER_SIZE = 25
+    # plt.rc('font', size=SMALL_SIZE)  # controls default text sizes
+    plt.rc('axes', titlesize=BIGGER_SIZE)  # fontsize of the axes title
+    plt.rc('axes', labelsize=BIGGER_SIZE)  # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=BIGGER_SIZE)  # fontsize of the tick labels
+    plt.rc('ytick', labelsize=BIGGER_SIZE)  # fontsize of the tick labels
+    plt.rc('legend', fontsize=BIGGER_SIZE)  # legend fontsize
+    plt.rcParams["figure.figsize"] = (4, 4)
+    #plt.set_size_inches(18.5, 18.5)
 
     #plt.setp(plt.gca(),ylim=(-5,))
 
-    plt.title(save_name)
-    plt.savefig(os.path.join(plot_folder,  save_name),bbox_inches='tight')
+    #plt.title(save_name)
+    plt.savefig(os.path.join(plot_folder,  save_name+".pdf"),bbox_inches='tight')
     return
 
 
@@ -1203,7 +1221,7 @@ def hist_distances(data_root, results_folder,processed_folder,plot_folder):
     dist_school_after = {}
 
     #k = 4
-    all_k = [2]
+    all_k = [2,3]
     use = 'mip'
     for k in all_k:
         dist_grocery_after[k] = []
@@ -1336,10 +1354,10 @@ def hist_distances(data_root, results_folder,processed_folder,plot_folder):
             #plt.text(arr_after.mean() * 1.1, max_ylim * 0.9, 'Mean: {:.2f}'.format(arr_after.mean()))
 
             plt.axvline(np.quantile(arr_after, 0.75), color=colors_line[ind2 + 1], linestyle='dashdot', linewidth=1.5, label='75% (k={}): {:.2f}'.format(all_k[ind2],np.quantile(arr_after, 0.75)))
-            plt.axvline(np.max(arr_after), color=colors_line[ind2 + 1], linestyle=('dotted'), linewidth=1.5, label='Max: (k={}): {:.2f}'.format(all_k[ind2], np.max(arr_after)))
+            plt.axvline(np.max(arr_after), color=colors_line[ind2 + 1], linestyle=('dotted'), linewidth=1.5, label='Max (k={}): {:.2f}'.format(all_k[ind2], np.max(arr_after)))
             #plt.text(np.quantile(arr_after, 0.75) * 1.1, max_ylim * 0.9, '75%: {:.2f}'.format(np.quantile(arr_after, 0.75)))
         plt.legend(loc='upper right')
-        plt.xlabel("Walking time (minutes)")
+        plt.xlabel("Walking Time (Minutes)")
         #plt.ylabel("Frequency")
 
         SMALL_SIZE = 8
@@ -1362,7 +1380,8 @@ def hist_distances(data_root, results_folder,processed_folder,plot_folder):
     return
 
 def nia_avg_walking_time(data_root,plot_folder,results_folder,preprocessing_folder):
-    plt.figure(dpi=1200)
+    SIZE=7
+    plt.figure(dpi=300)
 
     '''plot code reference: https://github.com/gcc-dav-official-github/dav_cot_walkability/blob/master/code/TTC%20Walkability%20Tutorial.ipynb'''
 
@@ -1409,19 +1428,95 @@ def nia_avg_walking_time(data_root,plot_folder,results_folder,preprocessing_fold
     nia_shape["dist_school"] = (np.array(dist_school)/speed)/60
     nia_shape["walk_obj"] = np.array(walk_obj)
 
-    nia_shape.plot(column='walk_obj',legend=True, legend_kwds={'shrink': 0.5})
+    ax=nia_shape.plot(column='walk_obj',legend=True, legend_kwds={'shrink': 0.5}, cmap='OrRd')
     texts = []
     for x, y, label, id in zip(nia_points.geometry.x, nia_points.geometry.y, nia_points["area_name"],nia_points["area_s_cd"]):
         # can instead plot id too?
-        texts.append(plt.text(x-0.01, y, label[:-5], fontsize=7, bbox=dict(boxstyle='square,pad=0.1', fc='white', ec='none')))
+        texts.append(plt.text(x - 0.01, y+0.01, int(id), fontsize=SIZE,bbox=dict(boxstyle='square,pad=0.05', fc='white', ec='none')))
+        # names
+        #texts.append(plt.text(x-0.01, y, label[:-5], fontsize=7, bbox=dict(boxstyle='square,pad=0.1', fc='white', ec='none')))
     #plt.show()
+    #ax.yaxis.set_ticks(np.arange(43.6, 43.8, 0.25))
+    plt.rc('font', size=SIZE)  # controls default text sizes
+    plt.rc('axes', titlesize=SIZE)  # fontsize of the axes title
+    plt.rc('axes', labelsize=SIZE)  # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=SIZE)  # fontsize of the tick labels
+    plt.rc('ytick', labelsize=SIZE)  # fontsize of the tick labels
+    plt.rc('legend', fontsize=SIZE)  # legend fontsize
     plt.tight_layout()
     plt.savefig(os.path.join(plot_folder,"final_eval", "cur_score.pdf"))
+    plt.savefig(os.path.join(plot_folder, "final_eval", "cur_score.png"))
     return
 
 
+def nia_avg_walking_time_2(data_root,plot_folder,results_folder,preprocessing_folder):
+    SIZE=7
+    plt.figure(dpi=300)
+
+    '''plot code reference: https://github.com/gcc-dav-official-github/dav_cot_walkability/blob/master/code/TTC%20Walkability%20Tutorial.ipynb'''
+
+    nia_shape = get_nias(data_root)
+
+    # reading pednet file
+    # pednet_path = os.path.join(data_root, "pednet.zip")
+    # pednet = gpd.read_file(pednet_path)
+
+    nia_shape["center"] = nia_shape["geometry"].centroid
+    nia_points = nia_shape.copy()
+    nia_points.set_geometry("center", inplace=True)
+
+    for k in [0,3]:
+
+        walk_obj = []
+
+        for nia in [int(item) for item in nia_shape["area_s_cd"]]:
+
+            ###############
+            print("nia:", nia)
+            filename = "NIA_%s_%s,%s,%s.csv" % (nia, k, k, k)
+            #  MIP
+            if os.path.exists(os.path.join(results_folder, "summary", "OptMultipleDepth_False_0", filename)):
+                mip_df = pd.read_csv(os.path.join(results_folder, "summary", "OptMultipleDepth_False_0", filename),index_col=None, header=0)
+                obj=mip_df["obj"]
+            else:
+                # if not feasible, use greedy solution
+                if os.path.exists(os.path.join(results_folder, "summary", "GreedyMultipleDepth_False_0", filename)):
+                    greedy_df = pd.read_csv(os.path.join(results_folder, "summary", "GreedyMultipleDepth_False_0", filename), index_col=None, header=0)
+                    obj=greedy_df["obj"]
+
+            walk_obj.append(obj)
+            ###############
+
+        nia_shape["walk_obj_"+str(k)] = np.array(walk_obj)
+
+    nia_shape["delta"] = nia_shape["walk_obj_3"]-nia_shape["walk_obj_0"]
+
+    ax=nia_shape.plot(column='delta',legend=True, legend_kwds={'shrink': 0.5},cmap='BuPu')
+    texts = []
+    for x, y, label, id in zip(nia_points.geometry.x, nia_points.geometry.y, nia_points["area_name"],nia_points["area_s_cd"]):
+        # can instead plot id too?
+
+        texts.append(plt.text(x - 0.01, y+0.01, int(id), fontsize=SIZE, bbox=dict(boxstyle='square,pad=0.05', fc='white', ec='none')))
+        # names
+        #texts.append(plt.text(x-0.01, y, label[:-5], fontsize=7, bbox=dict(boxstyle='square,pad=0.1', fc='white', ec='none')))
+    #plt.show()
+    #ax.yaxis.set_ticks(np.arange(43.6, 43.8, 0.25))
+    plt.rc('font', size=SIZE)  # controls default text sizes
+    plt.rc('axes', titlesize=SIZE)  # fontsize of the axes title
+    plt.rc('axes', labelsize=SIZE)  # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=SIZE)  # fontsize of the tick labels
+    plt.rc('ytick', labelsize=SIZE)  # fontsize of the tick labels
+    plt.rc('legend', fontsize=SIZE)  # legend fontsize
+    plt.tight_layout()
+    plt.savefig(os.path.join(plot_folder,"final_eval", "score_delta_k3.pdf"))
+    plt.savefig(os.path.join(plot_folder, "final_eval", "score_delta_k3.png"))
+    return
+
 def avg_obj_vs_k_multi(results_folder, plot_folder):
 
+    SMALL_SIZE = 8
+    MEDIUM_SIZE = 13
+    BIGGER_SIZE = 22
 
     data_root = "/Users/weimin/Documents/MASC/walkability_data"
     D_NIA = ct_nia_mapping(os.path.join(data_root, "neighbourhood-improvement-areas-wgs84/processed_TSNS 2020 NIA Census Tracts.xlsx"))
@@ -1430,7 +1525,6 @@ def avg_obj_vs_k_multi(results_folder, plot_folder):
     plt.clf()
     plt.rcParams["figure.figsize"] = (8, 8)
     plt.figure(dpi=300)
-
 
     L_k = []
     L_grocery = []
@@ -1481,30 +1575,39 @@ def avg_obj_vs_k_multi(results_folder, plot_folder):
         L_obj.append(np.mean(L_obj_temp))
         L_k.append(k)
 
+    plt.rcParams.update({'font.size': BIGGER_SIZE})
+
     fig, ax1 = plt.subplots()
     ax1.set_xlabel('k')
-    ax1.set_ylabel('dist (m)', color='black')
+    ax1.set_ylabel('Distance (Meters)', color='black')
     ax1.tick_params(axis='y', labelcolor='black')
 
     ax1.plot(L_k,L_grocery , label="Grocery",marker="^")
-    ax1.plot(L_k,L_res_0 , label="Restaurant (1st Nearest)",marker="^")
+    ax1.plot(L_k,L_res_0 , label="Restaurant (1st)",marker="^")
     ax1.plot(L_k, L_school, label="School",marker="^")
-    ax1.plot(L_k, L_res_1, label="Restaurant (2nd Nearest)",marker="^")
+    ax1.plot(L_k, L_res_1, label="Restaurant (2nd)",marker="^")
     #ax1.plot(L_k, L_res_2, label="res3", marker="^")
 
     ax2 = ax1.twinx()
-    ax2.set_ylabel('score', color='purple')
+    ax2.set_ylabel('Score', color='purple')
     ax2.set_ylim([50, 95])
     ax2.plot(L_k, L_obj, color='purple', label="score",linestyle="dashdot",marker="^")
     ax2.tick_params(axis='y', labelcolor='purple')
 
 
-    ax1.legend(prop={'size': 15})
-    ax2.legend(prop={'size': 15},loc='upper left')
+    ax1.legend(prop={'size': BIGGER_SIZE})
+    ax2.legend(prop={'size': BIGGER_SIZE},loc='upper left')
     #plt.xlabel("k")
     #plt.ylabel("dist (m)")
+
+    plt.rc('font', size=BIGGER_SIZE)  # controls default text sizes
+    plt.rc('axes', titlesize=BIGGER_SIZE)  # fontsize of the axes title
+    plt.rc('axes', labelsize=BIGGER_SIZE)  # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=BIGGER_SIZE)  # fontsize of the tick labels
+    plt.rc('ytick', labelsize=BIGGER_SIZE)  # fontsize of the tick labels
+    plt.rc('legend', fontsize=BIGGER_SIZE)  # legend fontsize
     plt.tight_layout()
-    plt.savefig(os.path.join(plot_folder, ("quality/avg_dist_vs_k_depth.png" )))
+    plt.savefig(os.path.join(plot_folder, ("quality/avg_dist_vs_k_depth.pdf" )))
 
     plt.clf()
     plt.figure(figsize=(8, 8))
@@ -1547,8 +1650,9 @@ def avg_obj_vs_k_multi(results_folder, plot_folder):
         L_obj.append(np.mean(L_obj_temp))
 
     fig, ax1 = plt.subplots()
+    plt.rcParams.update({'font.size': BIGGER_SIZE})
     ax1.set_xlabel('k')
-    ax1.set_ylabel('dist (m)', color='black')
+    ax1.set_ylabel('Distance (Meters)', color='black')
     ax1.tick_params(axis='y', labelcolor='black')
 
     ax1.plot(L_k, L_grocery, label="Grocery",marker="^")
@@ -1561,10 +1665,18 @@ def avg_obj_vs_k_multi(results_folder, plot_folder):
     ax2.plot(L_k, L_obj, color='purple', label="score", linestyle="dashdot",marker="^")
     ax2.tick_params(axis='y', labelcolor='purple')
 
-    ax1.legend(prop={'size': 15})
-    ax2.legend(prop={'size': 15},loc='upper left')
+    ax1.legend(prop={'size': BIGGER_SIZE})
+    ax2.legend(prop={'size': BIGGER_SIZE},loc='upper left')
+
+    plt.rc('font', size=BIGGER_SIZE)  # controls default text sizes
+    plt.rc('axes', titlesize=BIGGER_SIZE)  # fontsize of the axes title
+    plt.rc('axes', labelsize=BIGGER_SIZE)  # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=BIGGER_SIZE)  # fontsize of the tick labels
+    plt.rc('ytick', labelsize=BIGGER_SIZE)  # fontsize of the tick labels
+    plt.rc('legend', fontsize=BIGGER_SIZE)  # legend fontsize
+
     plt.tight_layout()
-    plt.savefig(os.path.join(plot_folder, ("quality/avg_dist_vs_k_no_depth.png" )))
+    plt.savefig(os.path.join(plot_folder, ("quality/avg_dist_vs_k_no_depth.pdf" )))
 
     # # score obj
     #
@@ -1632,11 +1744,19 @@ if __name__ == "__main__":
     #                             ["OptMultipleDepth_False_0", "OptMultipleDepthCP_False_0","GreedyMultipleDepth_False_0","OptMultipleDepthCP_True_0","OptMultipleDepth_True_0"],
     #                             ["MILP", "CP", "Greedy","CP-bp","MILP-bp"], "boxplot multiple depth")
     ## without branch priority
-    # plot_time_by_group_multiple(results_folder, os.path.join(plot_folder,"time"),["OptMultiple_False_0","OptMultipleCP_False_0","GreedyMultiple_False_0"],
-    #                           ["MILP","CP", "Greedy"], "boxplot multiple")
     # plot_time_by_group_multiple(results_folder, os.path.join(plot_folder, "time"),
-    #                             ["OptMultipleDepth_False_0", "OptMultipleDepthCP_False_0","GreedyMultipleDepth_False_0"],
+    #                             ["OptMultipleDepth_False_0", "OptMultipleDepthCP_False_0",
+    #                              "GreedyMultipleDepth_False_0"],
     #                             ["MILP", "CP", "Greedy"], "boxplot multiple depth")
+    # plot_time_by_group_multiple(results_folder, os.path.join(plot_folder, "time"),
+    #                             ["OptMultiple_False_0", "OptMultipleCP_False_0", "GreedyMultiple_False_0"],
+    #                             ["MILP", "CP", "Greedy"], "boxplot multiple")
+
+
+    # plot_time_by_group_multiple(results_folder, os.path.join(plot_folder, "time"),
+    #                             ["OptMultiple_False_0", "OptMultipleCP_False_0", "GreedyMultipleLazy_False_0"],
+    #                             ["MILP", "CP", "Greedy"], "boxplot multiple lazy greedy")
+
 
     # # temp quality measures
     # quality_table_by_k_multiple(processed_folder)
@@ -1645,13 +1765,14 @@ if __name__ == "__main__":
 
     # final quality table
     # all_instances_obj(data_root, results_folder, "processed_results")
-    quality_table(results_folder, processed_folder)
+    # quality_table(results_folder, processed_folder)
 
     # Make histogram
     # hist_distances(data_root, results_folder, processed_folder, plot_folder)
 
     # draw nia
-    # nia_avg_walking_time(data_root,plot_folder,results_folder,preprocessing_folder)
+    nia_avg_walking_time(data_root,plot_folder,results_folder,preprocessing_folder)
+    nia_avg_walking_time_2(data_root, plot_folder, results_folder, preprocessing_folder)
 
     # avg_obj_vs_k_multi(results_folder, plot_folder)
 

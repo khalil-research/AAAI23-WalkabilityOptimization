@@ -448,6 +448,7 @@ def greedy_multiple_depth(df_from,df_to,grocery_df, restaurant_df, school_df, SP
     return score_obj, [np.mean(d_grocery), list(np.mean(d_res,axis=0)), np.mean(d_school)], (et - st), None, allocated_D, None, num_residents, num_allocation, [num_cur_grocery, num_cur_restaurant, num_cur_school], None
 
 def greedy_multiple_lazy(df_from,df_to,grocery_df, restaurant_df, school_df, SP_matrix, k_array):
+    print(" in function")
     '''multiple amenity case, with depth of choice'''
 
     if len(df_from)>0:
@@ -494,6 +495,8 @@ def greedy_multiple_lazy(df_from,df_to,grocery_df, restaurant_df, school_df, SP_
             start_id += len(amenity_df)
 
     capacity = copy.deepcopy(capacity_init)
+
+    print("start timing")
 
     st = time.time()
 
