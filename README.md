@@ -13,5 +13,5 @@
     * GreedyMultipleDepth: Greedy, MultiChoice case
     * GreedyMultiple: Greedy, SingleChoice case
 
-* results_summary.py - Get model compairson and emprical evaluation statistics
+* results_summary.py - Get model compairson and emprical evaluation statistics.
 
