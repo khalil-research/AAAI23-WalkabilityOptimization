@@ -11,6 +11,9 @@ import geopandas as gpd
 
 
 def pednet_preprocessing():
+    '''
+    PedNet preprocessing: get the corresponding NIA for edges in PedNet
+    '''
     # get end points of roads
     road_points(data_root,outputfile=os.path.join(preprocessing_folder,"road_end_point.txt"))
 
@@ -19,6 +22,9 @@ def pednet_preprocessing():
     return
 
 def nia_preprocessing(nia_id):
+    '''
+    Data needed for each NIA instance
+    '''
     print("processing nia", nia_id)
     tag_parking={"amenity":"parking"}
     tag_residential={"building":["apartments","bungalow","cabin","detached","dormitory","farm","ger","hotel","house","houseboat","residential","semidetached_house","static_caravan","terrace"]}

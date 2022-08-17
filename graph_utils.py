@@ -25,10 +25,15 @@ def load_pednet(data_root):
         ['OBJECTID', 'road_type', 'sdwlk_code', 'sdwlk_desc', 'crosswalk', 'cwalk_type', 'px', 'px_type', 'geometry']]
     return pednet
 
-# from https://github.com/gcc-dav-official-github/dav_cot_walkability/blob/master/code/TTC%20Walkability%20Tutorial.ipynb
 def create_graph(gdf, precision=3):
 
-    '''Create a networkx given a GeoDataFrame of lines. Every line will
+    '''
+    Modified from publicly available PedNet data:
+    City of Toronto. 2019a. Toronto Walkability Project. https:
+    //github.com/gcc-dav-official-github/dav cot walkability.
+    Accessed: 2022-07-17.
+
+    Create a networkx given a GeoDataFrame of lines. Every line will
     correspond to two directional graph edges, one forward, one reverse. The
     original line row and direction will be stored in each edge. Every node
     will be where endpoints meet (determined by being very close together) and
