@@ -1,6 +1,6 @@
 # Data-Driven Walkability Optimization
 
-The Pedestrian Netowrk data is downloaded at this repository https://github.com/gcc-dav-official-github/dav_cot_walkability/tree/master/data
+Instances for computational experiments in this projects are created from Neigbhourhood Improvement Areas (NIAs) at the City of Toronto. The Pedestrian Netowrk data (pednet.zip) can be obtained from the publicly available dataset created by the City of Toronto: https://github.com/gcc-dav-official-github/dav_cot_walkability/tree/master/data. Information on NIAs is publicly available from The City of Toronto’s Open Data Portal: https://www.toronto.ca/city-government/data-research-maps/neighbourhoods-communities/neighbourhood-profiles/nia-profiles/
 
 * prepare_data.py - Data Preprocessing. Obtain the shortest path pairs, existing amenity instances, residential locations, and candidate allocation location for each NIA.
 
