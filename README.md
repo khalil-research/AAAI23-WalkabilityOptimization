@@ -1,5 +1,7 @@
 # Data-Driven Walkability Optimization
 
+The Pedestrian Netowrk data is downloaded at this repository https://github.com/gcc-dav-official-github/dav_cot_walkability/tree/master/data
+
 * prepare_data.py - Data Preprocessing. Obtain the shortest path pairs, existing amenity instances, residential locations, and candidate allocation location for each NIA.
 
 * optimize.py - Run the optmization models.
