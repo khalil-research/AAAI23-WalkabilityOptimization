@@ -1,4 +1,4 @@
-# walkability
+# Data-Driven Walkability Optimization
 
 * prepare_data.py - Data Preprocessing. Obtain the shortest path pairs, existing amenity instances, residential locations, and candidate allocation location for each NIA.
 
