@@ -20,6 +20,6 @@ To run optimization models:
     
     
 To get model comparison and empirical evaluation:
-> results_summary.py
+> python results_summary.py
 
 
