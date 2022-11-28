@@ -22,4 +22,7 @@ To run optimization models:
 To get model comparison and empirical evaluation:
 > python results_summary.py
 
+To visualize allocated amnenities:
+> python viz.py
+
 
