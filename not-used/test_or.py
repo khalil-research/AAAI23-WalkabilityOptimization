@@ -3,6 +3,9 @@ import sys
 import time
 from ortools.sat.python import cp_model
 
+## From Google-OR Tools tutorial
+## https://developers.google.com/optimization/cp/queens
+
 
 class NQueenSolutionPrinter(cp_model.CpSolverSolutionCallback):
     """Print intermediate solutions."""
